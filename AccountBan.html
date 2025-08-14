@@ -1,0 +1,135 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Account Banned</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1f1f2e, #2c2c3e);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+            max-width: 500px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+            color: #ff4c4c;
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .details {
+            font-size: 1rem;
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.6rem;
+            background-color: #ff4c4c;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+            .btn:hover {
+                background-color: #e03e3e;
+            }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Account Banned</h1>
+        <p id="status">Checking ban status...</p>
+        <div class="details" id="banDetails" style="display:none;"></div>
+        <a href="/appeal" class="btn" id="appealBtn" style="display:none;">Submit Appeal</a>
+    </div>
+
+    <!-- Firebase SDK (v9 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // 🔧 Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+
+        // 🔥 Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 🧠 Get username and user ID from localStorage
+        const username = localStorage.getItem("username");
+        const userId = localStorage.getItem("userId");
+
+        if (!username || !userId) {
+            document.getElementById("status").textContent = "Missing user credentials.";
+            setTimeout(() => window.location.href = "main.html", 100);
+        } else {
+            // 🔍 Look up ban info at users/[username]/ban/info
+            db.collection("users").doc(username).collection("ban").doc("info").get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    document.getElementById("status").style.display = "none";
+                    document.getElementById("banDetails").style.display = "block";
+                    document.getElementById("appealBtn").style.display = "inline-block";
+
+                    document.getElementById("banDetails").innerHTML = `
+                <strong>Reason:</strong> ${data.reason || "Not specified"}<br>
+                <strong>Ban Duration:</strong> ${data.duration || "Permanent"}<br>
+                <strong>Date Issued:</strong> ${data.dateIssued || "Unknown"}<br>
+                <strong>User ID:</strong> ${userId}
+              `;
+                } else {
+                    document.getElementById("status").textContent = "No ban found for this account.";
+                    setTimeout(() => window.location.href = "lobby.html", 100);
+                }
+            }).catch(error => {
+                console.error("Error checking ban:", error);
+                document.getElementById("status").textContent = "Error checking ban status.";
+            });
+        }
+    </script>
+</body>
+</html>

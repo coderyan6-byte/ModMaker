@@ -1,0 +1,441 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lobby</title>
+    <link rel="icon" type="image/png" href="image2.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        /* ===== Variables ===== */
+        :root {
+            --bg1: #111827;
+            --bg2: #1f2937;
+            --card: #0b1220cc;
+            --txt: #e5e7eb;
+            --muted: #cbd5e1;
+            --accent: #4fd1c5;
+            --shadow: 0 10px 25px rgba(0,0,0,0.35);
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: "Segoe UI", system-ui, Arial, sans-serif;
+            color: var(--txt);
+            background: linear-gradient(135deg, #334155 0%, #111827 60%, #0b1220 100%);
+        }
+
+        .container {
+            min-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .lobby {
+            width: min(900px, 95vw);
+            background: rgba(0,0,0,0.55);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 28px;
+            backdrop-filter: blur(8px);
+            animation: fadeIn .5s ease-out;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        p.sub {
+            margin: 0 0 22px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 22px;
+            text-align: center;
+            box-shadow: 0 6px 18px rgba(0,0,0,.25);
+        }
+
+        .big-btn {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            color: #111;
+            font-weight: 800;
+            font-size: 20px;
+            padding: 20px 18px;
+            cursor: pointer;
+            box-shadow: 0 10px 18px rgba(0,0,0,.25);
+            transition: transform .08s ease, filter .15s ease;
+        }
+
+            .big-btn:active {
+                transform: scale(.98);
+            }
+
+        .btn-red {
+            background: #ef4444;
+        }
+
+        .btn-orange {
+            background: #f59e0b;
+        }
+
+        .btn-yellow {
+            background: #facc15;
+        }
+
+        .public-btn:active {
+            transform: scale(.98);
+        }
+        .public-btn {
+            background-color: #4CAF50;
+            color: black;
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 20px;
+            padding: 20px 18px;
+            cursor: pointer;
+            box-shadow: 0 10px 18px rgba(0,0,0,.25);
+            transition: transform .08s ease, filter .15s ease;
+        }
+
+        .big-btn:hover {
+            filter: brightness(1.05);
+        }
+
+        /* ===== Modal ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,.55);
+            z-index: 50;
+        }
+
+            .modal-overlay.show {
+                display: flex;
+            }
+
+        .modal {
+            width: min(560px, 92vw);
+            background: rgba(0,0,0,0.85);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+        }
+
+            .modal header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* ===== Rating ===== */
+        .rating {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .star {
+            font-size: 28px;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: transform .08s ease, color .15s ease;
+        }
+
+            .star.active {
+                color: gold;
+            }
+
+            .star:hover {
+                transform: scale(1.1);
+                color: gold;
+            }
+
+        .status {
+            margin-top: 14px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity .35s ease;
+        }
+
+            .status.show {
+                opacity: 1;
+            }
+
+        /* Mobile */
+        @media (max-width:780px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        /* ===== Loading Screen ===== */
+        #loadingScreen {
+            position: fixed;
+            inset: 0;
+            background: black;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-size: 24px;
+            z-index: 999;
+        }
+
+        .dots::after {
+            content: "";
+            animation: dots 1.5s steps(3, end) infinite;
+        }
+
+        @keyframes dots {
+            0% {
+                content: "";
+            }
+
+            33% {
+                content: ".";
+            }
+
+            66% {
+                content: "..";
+            }
+
+            100% {
+                content: "...";
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loadingScreen">
+        Opening mod tool<span class="dots"></span>
+    </div>
+
+    <div class="container">
+        <div class="lobby">
+            <h1>Lobby</h1>
+            <p class="sub">Choose where to go.</p>
+            <div class="grid">
+                <div class="card"><button class="big-btn btn-red" id="btnMod">Mod minecraft</button></div>
+                <div class="card"><button class="big-btn btn-orange" id="btnPeople">People</button></div>
+                <div class="card"><button class="big-btn btn-yellow" id="btnFAQ">FAQ</button></div>
+                <div class="card"><button class="public-btn" id="publicbtn">public mods</button></div>
+            </div>
+            <p id="status" class="status"></p>
+        </div>
+    </div>
+
+    <!-- FAQ Modal -->
+    <div class="modal-overlay" id="faqModal">
+        <div class="modal">
+            <header>
+                <h2>FAQ and Rating</h2>
+                <button class="close-btn" id="faqClose">✕</button>
+            </header>
+            <section>
+                <p><strong>Q:</strong> What is this project?</p>
+                <p><strong>A:</strong> A community to build and share Minecraft add-ons, connect with people, and learn faster.</p>
+
+                <p><strong>Q:</strong> How do I mod minecraft?</p>
+                <p><strong>A:</strong> Simple, click the mod minecraft button.</p>
+
+                <p><strong>Q:</strong> Is it free?</p>
+                <p><strong>A:</strong> Yes, for the first 2 mods, if you want to make more you need to pay.</p>
+            </section>
+            <section class="rating">
+                <span>Rate your experience:</span>
+                <div id="stars">
+                    <span class="star" data-val="1">★</span>
+                    <span class="star" data-val="2">★</span>
+                    <span class="star" data-val="3">★</span>
+                    <span class="star" data-val="4">★</span>
+                    <span class="star" data-val="5">★</span>
+                </div>
+                <span id="ratingValue"></span>
+            </section>
+            <div class="actions" style="margin-top:16px; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn-primary" id="saveRating">Save rating</button>
+            </div>
+            <p id="faqStatus" class="status"></p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+
+        // Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const faqModal = document.getElementById("faqModal");
+        const btnFAQ = document.getElementById("btnFAQ");
+        const faqClose = document.getElementById("faqClose");
+        const stars = document.querySelectorAll(".star");
+        const ratingValue = document.getElementById("ratingValue");
+        const saveBtn = document.getElementById("saveRating");
+        const faqStatus = document.getElementById("faqStatus");
+        const loadingScreen = document.getElementById("loadingScreen");
+
+        let currentRating = 0;
+        const userId = localStorage.getItem("userId") || localStorage.getItem("username") || "anon_user";
+        const username = localStorage.getItem("username");
+
+if (!username || !userId) {
+    showStatus("Not logged in. Redirecting...", true);
+    setTimeout(() => window.location.href = "login.html", 100);
+} else {
+     }
+
+        const banSnap = await getDocs(collection(db, "users", username, "ban"));
+        if (!banSnap.empty) {
+            window.location.href = "AccountBan.html";
+        }
+
+
+        function showStatus(msg, error = false) {
+            faqStatus.textContent = msg;
+            faqStatus.style.color = error ? "#f87171" : "#a7f3d0";
+            faqStatus.classList.add("show");
+            setTimeout(() => faqStatus.classList.remove("show"), 2500);
+        }
+
+        console.log(`
+      _______      _________      _____       ______     _
+     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+    | |               | |      / /     \\ \\   | |   | |  | |
+    \\ \\______         | |      | |     | |   | |___/ /  | |
+     \\______ \\        | |      | |     | |   |  ____/   | |
+            \\ \\       | |      | |     | |   | |        | |
+     _      | |       | |      \\ \\     / /   | |        |_|
+    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+     \\_______/        |_|        \\_____/     |_|        |_|
+
+     Keep your account safe! Do not send any information from
+     here to anyone or paste any text here.
+
+     If someone is asking you to copy or paste text here then
+     you're giving someone access to your account.
+`);
+
+
+        function renderStars(val) {
+            stars.forEach(star => {
+                const v = Number(star.dataset.val);
+                star.classList.toggle("active", v <= val);
+            });
+            ratingValue.textContent = val ? `${val}/5` : "";
+        }
+
+        async function loadRating() {
+            try {
+                const snap = await getDoc(doc(db, "ratings", userId));
+                currentRating = snap.exists() ? Number(snap.data().rating) || 0 : 0;
+                renderStars(currentRating);
+            } catch {
+                showStatus("Failed to load rating.", true);
+            }
+        }
+
+        // Buttons
+        btnFAQ.addEventListener("click", () => {
+            loadRating();
+            faqModal.classList.add("show");
+        });
+        faqClose.addEventListener("click", () => faqModal.classList.remove("show"));
+        faqModal.addEventListener("click", e => { if (e.target === faqModal) faqModal.classList.remove("show"); });
+
+        document.getElementById("btnPeople").addEventListener("click", () => {
+            window.location.href = "profile.html";
+        });
+
+        document.getElementById("publicbtn").addEventListener("click", () => {
+            window.location.href = "publicmods.html";
+        });
+
+        document.getElementById("btnMod").addEventListener("click", () => {
+            loadingScreen.style.display = "flex";
+            setTimeout(() => {
+                window.location.href = "Mod.html";
+                //}, 2500);
+                //10500
+            }, 4500);
+        });
+
+        stars.forEach(star => {
+            star.addEventListener("click", () => {
+                currentRating = Number(star.dataset.val);
+                renderStars(currentRating);
+            });
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            if (!currentRating) return showStatus("Pick a rating first.", true);
+            try {
+                await setDoc(doc(db, "ratings", userId), { rating: currentRating, updatedAt: Date.now() });
+                showStatus("Thanks for your rating!");
+            } catch {
+                showStatus("Failed to save rating.", true);
+            }
+        });
+    </script>
+</body>
+</html>

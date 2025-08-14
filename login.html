@@ -1,0 +1,209 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <link rel="icon" type="image/png" href="image2.png">
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            width: 320px;
+            animation: fadeIn 1s ease;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+            input:focus {
+                outline: none;
+                background-color: #eee;
+                color: #333;
+            }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background-color: #4fd1c5;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            button:hover {
+                background-color: #38b2ac;
+            }
+
+        #status {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+            #status.show {
+                opacity: 1;
+            }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Create Account</h2>
+        <input type="text" id="newUsername" placeholder="Username">
+        <input type="password" id="newPassword" placeholder="Password">
+        <button onclick="createAccount()">Create Account</button>
+
+        <h2>Login</h2>
+        <input type="text" id="loginUsername" placeholder="Username">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="login()">Login</button>
+
+        <p id="status"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const statusEl = document.getElementById("status");
+
+        function showStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.style.color = isError ? "#f87171" : "#a7f3d0";
+            statusEl.classList.add("show");
+            setTimeout(() => statusEl.classList.remove("show"), 3000);
+        }
+
+        function generateId() {
+            return 'xxxxxxxxyxxxxyxxxyxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        console.log(`
+      _______      _________      _____       ______     _
+     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+    | |               | |      / /     \\ \\   | |   | |  | |
+    \\ \\______         | |      | |     | |   | |___/ /  | |
+     \\______ \\        | |      | |     | |   |  ____/   | |
+            \\ \\       | |      | |     | |   | |        | |
+     _      | |       | |      \\ \\     / /   | |        |_|
+    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+     \\_______/        |_|        \\_____/     |_|        |_|
+
+     Keep your account safe! Do not send any information from
+     here to anyone or paste any text here.
+
+     If someone is asking you to copy or paste text here then
+     you're giving someone access to your account.
+`);
+
+
+        window.createAccount = async function () {
+            const username = document.getElementById("newUsername").value.trim();
+            const password = document.getElementById("newPassword").value.trim();
+
+            if (!username || !password) {
+                showStatus("Please enter both fields.", true);
+                return;
+            }
+
+            const userRef = doc(db, "users", username);
+            const docSnap = await getDoc(userRef);
+
+            if (docSnap.exists()) {
+                showStatus("Username already taken.", true);
+            } else {
+                const joinDate = new Date().toISOString();
+                const userId = generateId();
+                await setDoc(userRef, {
+                    password,
+                    joinDate,
+                    userId,
+                    description: ""
+                });
+                showStatus(`Account created!`);
+            }
+        };
+
+        window.login = async function () {
+            const username = document.getElementById("loginUsername").value.trim();
+            const password = document.getElementById("loginPassword").value.trim();
+
+            const userRef = doc(db, "users", username);
+            const docSnap = await getDoc(userRef);
+
+            if (!docSnap.exists()) {
+                showStatus("User not found.", true);
+            } else {
+                const data = docSnap.data();
+                if (data.password === password) {
+                    localStorage.setItem("userId", data.userId);
+                    localStorage.setItem("username", username);
+                    // window.location.href = "profile.html";
+                    window.location.href = "lobby.html";
+                } else {
+                    showStatus("Incorrect password.", true);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

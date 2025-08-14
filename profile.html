@@ -1,0 +1,604 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Profile</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <link rel="icon" type="image/png" href="image2.png">
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .profile-container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            width: 800px;
+            max-width: 95%;
+            animation: fadeIn 1s ease;
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        h2, h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            font-size: 16px;
+            resize: none;
+            background-color: #fff;
+            color: #333;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            background-color: #4fd1c5;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+            button:hover {
+                background-color: #38b2ac;
+            }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        .user-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Make Following list a gallery as well (no structural change to HTML tag) */
+        #followingList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 20px;
+            list-style: none;
+            padding: 0;
+        }
+
+            #followingList > li {
+                margin: 0;
+            }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            width: 180px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+            .user-card h4 {
+                margin: 10px 0;
+                font-size: 18px;
+                color: #fff;
+            }
+
+            .user-card button {
+                margin-top: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                border: none;
+                border-radius: 6px;
+                background-color: #4fd1c5;
+                color: #000;
+                cursor: pointer;
+            }
+
+                .user-card button:hover {
+                    background-color: #38b2ac;
+                }
+
+        #status {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 15px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+            #status.show {
+                opacity: 1;
+            }
+
+        /* Profile modal UI (replaces alert) */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+            .modal-overlay.show {
+                display: flex;
+            }
+
+        .modal-card {
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+            width: 520px;
+            max-width: 95%;
+            padding: 24px;
+            color: #fff;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: transparent;
+            color: #fff;
+            border: none;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .modal-body {
+            margin-top: 12px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 14px;
+            color: #eaeaea;
+            white-space: pre-wrap;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn-danger {
+            background-color: #f87171;
+            color: #000;
+        }
+
+            .btn-danger:hover {
+                background-color: #ef4444;
+            }
+
+        .btn-secondary {
+            background-color: #cbd5e1;
+            color: #000;
+        }
+
+            .btn-secondary:hover {
+                background-color: #94a3b8;
+            }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <h2>Welcome, <span id="usernameDisplay"></span></h2>
+        <textarea id="descriptionBox" placeholder="Write something about yourself..."></textarea>
+        <button onclick="saveDescription()">Save Description</button>
+        <button onclick="logout()">Logout</button>
+
+        <h3>Following</h3>
+        <ul id="followingList"></ul>
+
+        <h3>Other Users</h3>
+        <div class="user-gallery" id="userList"></div>
+
+        <p id="status"></p>
+    </div>
+
+    <!-- Profile Modal (UI instead of alert) -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalUsername">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalUsername"></h3>
+                <button class="modal-close" id="modalCloseBtn" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body" id="modalDescription"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="modalFollowBtn" style="display:none;">Follow</button>
+                <button class="btn-danger" id="modalUnfollowBtn" style="display:none;">Unfollow</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const usernameDisplay = document.getElementById("usernameDisplay");
+        const descriptionBox = document.getElementById("descriptionBox");
+        const statusEl = document.getElementById("status");
+        const followingList = document.getElementById("followingList");
+        const userList = document.getElementById("userList");
+
+        // Modal elements
+        const profileModal = document.getElementById("profileModal");
+        const modalUsernameEl = document.getElementById("modalUsername");
+        const modalDescriptionEl = document.getElementById("modalDescription");
+        const modalCloseBtn = document.getElementById("modalCloseBtn");
+        const modalFollowBtn = document.getElementById("modalFollowBtn");
+        const modalUnfollowBtn = document.getElementById("modalUnfollowBtn");
+
+        function showStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.style.color = isError ? "#f87171" : "#a7f3d0";
+            statusEl.classList.add("show");
+            setTimeout(() => statusEl.classList.remove("show"), 3000);
+        }
+
+        const username = localStorage.getItem("username");
+        const userId = localStorage.getItem("userId");
+
+        if (!username || !userId) {
+            showStatus("Not logged in. Redirecting...", true);
+            setTimeout(() => window.location.href = "login.html", 2000);
+        }
+
+        usernameDisplay.textContent = username;
+        const userRef = doc(db, "users", username);
+
+        async function loadProfile() {
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                descriptionBox.value = data.description || "";
+                const following = data.following || [];
+
+                // Following gallery (cards + view profile)
+                followingList.innerHTML = "";
+                following.forEach(user => {
+                    const li = document.createElement("li");
+                    const card = document.createElement("div");
+                    card.className = "user-card";
+                    card.innerHTML = `
+                                <h4>${user}</h4>
+                                <button onclick="viewProfile('${user}')">View Profile</button>
+                            `;
+                    li.appendChild(card);
+                    followingList.appendChild(li);
+                });
+
+                // Other Users
+                const allUsersSnap = await getDocs(collection(db, "users"));
+                userList.innerHTML = "";
+
+                allUsersSnap.forEach(docSnap => {
+                    const otherUser = docSnap.id;
+                    if (otherUser !== username) {
+                        const isFollowing = following.includes(otherUser);
+                        const card = document.createElement("div");
+                        card.className = "user-card";
+                        card.innerHTML = `
+                                    <h4>${otherUser}</h4>
+                                    ${isFollowing
+                                ? `<button onclick="viewProfile('${otherUser}')">View Profile</button>`
+                                : `<button onclick="follow('${otherUser}')">Follow</button>`}
+                                `;
+                        userList.appendChild(card);
+                    }
+                });
+            } else {
+                showStatus("User not found.", true);
+            }
+        }
+
+        
+
+        const banSnap = await getDocs(collection(db, "users", username, "ban"));
+        if (!banSnap.empty) {
+            window.location.href = "AccountBan.html";
+        }
+    
+        console.log(`
+      _______      _________      _____       ______     _
+     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+    | |               | |      / /     \\ \\   | |   | |  | |
+    \\ \\______         | |      | |     | |   | |___/ /  | |
+     \\______ \\        | |      | |     | |   |  ____/   | |
+            \\ \\       | |      | |     | |   | |        | |
+     _      | |       | |      \\ \\     / /   | |        |_|
+    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+     \\_______/        |_|        \\_____/     |_|        |_|
+
+     Keep your account safe! Do not send any information from
+     here to anyone or paste any text here.
+
+     If someone is asking you to copy or paste text here then
+     you're giving someone access to your account.
+`);
+
+
+    // Modal helpers
+    function openModal() {
+    profileModal.classList.add("show");
+    }
+
+    function closeModal() {
+    profileModal.classList.remove("show");
+    // Clear actions to avoid stale handlers
+    modalFollowBtn.onclick = null;
+    modalUnfollowBtn.onclick = null;
+    }
+
+    modalCloseBtn.addEventListener("click", closeModal);
+    profileModal.addEventListener("click", (e) => {
+    if (e.target === profileModal) closeModal();
+    });
+
+    function setModalActions(targetUser, isFollowing) {
+    // Toggle buttons based on follow state
+    if (isFollowing) {
+    modalFollowBtn.style.display = "none";
+    modalUnfollowBtn.style.display = "inline-block";
+    modalUnfollowBtn.onclick = async () => {
+    await window.unfollow(targetUser);
+    // After unfollow, switch to "Follow" button
+    modalFollowBtn.style.display = "inline-block";
+    modalUnfollowBtn.style.display = "none";
+    modalFollowBtn.onclick = async () => {
+    await window.follow(targetUser);
+    // After follow, switch back to "Unfollow"
+    modalFollowBtn.style.display = "none";
+    modalUnfollowBtn.style.display = "inline-block";
+    };
+    };
+    } else {
+    modalUnfollowBtn.style.display = "none";
+    modalFollowBtn.style.display = "inline-block";
+    modalFollowBtn.onclick = async () => {
+    await window.follow(targetUser);
+    // After follow, switch to "Unfollow"
+    modalFollowBtn.style.display = "none";
+    modalUnfollowBtn.style.display = "inline-block";
+    modalUnfollowBtn.onclick = async () => {
+    await window.unfollow(targetUser);
+    modalFollowBtn.style.display = "inline-block";
+    modalUnfollowBtn.style.display = "none";
+    };
+    };
+    }
+    }
+
+    window.saveDescription = async function () {
+    await updateDoc(userRef, {
+    description: descriptionBox.value
+    });
+    showStatus("Description saved!");
+    };
+
+    window.logout = function () {
+    localStorage.removeItem("username");
+    localStorage.removeItem("userId");
+    window.location.href = "main.html";
+    };
+
+    window.follow = async function (targetUser) {
+    if (targetUser === username) {
+    showStatus("You can't follow yourself.", true);
+    return;
+    }
+
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+    const data = docSnap.data();
+    const following = data.following || [];
+    if (!following.includes(targetUser)) {
+    following.push(targetUser);
+    await updateDoc(userRef, { following });
+    showStatus(`You followed ${targetUser}`);
+    loadProfile(); // refresh lists
+    } else {
+    showStatus(`You're already following ${targetUser}`);
+    }
+    }
+    };
+
+    // New: Unfollow support (from profile modal)
+    window.unfollow = async function (targetUser) {
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+    const data = docSnap.data();
+    const following = data.following || [];
+    if (following.includes(targetUser)) {
+    const updated = following.filter(u => u !== targetUser);
+    await updateDoc(userRef, { following: updated });
+    showStatus(`You unfollowed ${targetUser}`);
+    loadProfile(); // refresh lists
+    } else {
+    showStatus(`You're not following ${targetUser}`, true);
+    }
+    }
+    };
+
+    // Updated: viewProfile now uses a UI modal (no alert)
+    window.viewProfile = async function (targetUser) {
+    const targetRef = doc(db, "users", targetUser);
+    const [targetSnap, meSnap] = await Promise.all([getDoc(targetRef), getDoc(userRef)]);
+
+    if (targetSnap.exists()) {
+    const data = targetSnap.data();
+    const myData = meSnap.exists() ? meSnap.data() : {};
+    const myFollowing = myData.following || [];
+    const isFollowing = myFollowing.includes(targetUser);
+
+    modalUsernameEl.textContent = `👤 ${targetUser}`;
+    modalDescriptionEl.textContent = data.description || "No description yet.";
+    setModalActions(targetUser, isFollowing);
+
+    // --- MOD LIST ---
+    const modsListEl = document.createElement("div");
+    modsListEl.style.marginTop = "15px";
+    modsListEl.innerHTML = "<h3>User Mods:</h3>";
+
+    // Query the MODS subcollection
+    const modsRef = collection(db, "users", targetUser, "MODS");
+    const modsSnap = await getDocs(modsRef);
+
+    if (!modsSnap.empty) {
+    modsSnap.forEach(docSnap => {
+    const mod = docSnap.data();
+    const modDiv = document.createElement("div");
+    modDiv.style.border = "1px solid #555";
+    modDiv.style.padding = "8px";
+    modDiv.style.marginBottom = "8px";
+    modDiv.innerHTML = `<strong>${mod.name}</strong><br><small>${(mod.script || "").slice(0, 50)}...</small>`;
+
+    // Download button
+    const dlBtn = document.createElement("button");
+    dlBtn.textContent = "Download BP";
+    dlBtn.style.marginTop = "5px";
+    dlBtn.onclick = () => downloadModBP(mod.name, mod.script || "");
+
+    modDiv.appendChild(document.createElement("br"));
+    modDiv.appendChild(dlBtn);
+    modsListEl.appendChild(modDiv);
+    });
+    } else {
+    modsListEl.innerHTML += "<p>No mods yet.</p>";
+    }
+
+    modalDescriptionEl.appendChild(modsListEl);
+
+    openModal();
+    } else {
+    showStatus("User not found.", true);
+    }
+    };
+
+
+    // --- Download BP function ---
+    window.downloadModBP = function (name, script) {
+    try {
+    const safe = (s) => s.replace(/[^\w-]+/g, "_").slice(0, 50) || "mod";
+    const zip = new JSZip();
+
+    // Root BP folder
+    const bpFolder = zip.folder(`${safe(name)}_BP`);
+    const functionsFolder = bpFolder.folder("functions");
+
+    // manifest.json
+    const manifest = {
+    format_version: 2,
+    header: {
+    name: name,
+    description: "Generated mod from profile",
+    uuid: crypto.randomUUID(),
+    version: [1, 0, 0],
+    min_engine_version: [1, 19, 0]
+    },
+    modules: [
+    {
+    type: "data",
+    uuid: crypto.randomUUID(),
+    version: [1, 0, 0]
+    }
+    ]
+    };
+    bpFolder.file("manifest.json", JSON.stringify(manifest, null, 4));
+
+    // loop.mcfunction
+    functionsFolder.file("loop.mcfunction", script || "");
+
+    // tick.json
+    functionsFolder.file(
+    "tick.json",
+    JSON.stringify({ values: ["loop"] }, null, 4)
+    );
+
+    // Generate and download zip
+    zip.generateAsync({ type: "blob" }).then(content => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = `${safe(name)}_BP.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    });
+    } catch (err) {
+    console.error("Failed to build BP zip:", err);
+    alert("Failed to create the pack. Check console for details.");
+    }
+    };
+
+
+
+    loadProfile();
+    </script>
+</body>
+</html>

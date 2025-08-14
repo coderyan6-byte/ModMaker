@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mod Workshop</title>
+    <link rel="icon" type="image/png" href="image2.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, deleteDoc, doc, updateDoc }
+            from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // --- Firebase config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+
+        
+    
+
+
+    
+
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- DOM references ---
+    const usernameDisplay = document.getElementById("usernameDisplay");
+    const modsContainer = document.getElementById("modsContainer");
+    const createModBtn = document.getElementById("createMod");
+    const modEditor = document.getElementById("modEditor");
+    const modNameInput = document.getElementById("modName");
+    const scriptArea = document.getElementById("scriptArea");
+    const saveModBtn = document.getElementById("saveMod");
+
+    let username = localStorage.getItem("username");
+    let mods = [];
+    let editingModId = null; // track which mod we�re editing
+
+    if (!username) {
+    setTimeout(() => window.location.href = "login.html", 100);
+    } else {
+    usernameDisplay.textContent = username;
+    loadMods();
+    }
+
+    async function loadMods() {
+    modsContainer.innerHTML = "";
+    mods = [];
+    const modsRef = collection(db, "users", username, "MODS");
+    const snapshot = await getDocs(modsRef);
+
+    snapshot.forEach(docSnap => {
+    const mod = docSnap.data();
+    mod.id = docSnap.id;
+    mods.push(mod);
+
+    const card = document.createElement("div");
+    card.className = "mod-card";
+    card.style.position = "relative";
+
+    card.innerHTML = `
+    <img src="Trash.png" class="delete-btn" title="Delete mod"
+         style="position:absolute; top:5px; right:5px; width:20px; height:20px; cursor:pointer;">
+    <strong>${mod.name}</strong>
+    <br>
+    <small>${mod.script.slice(0, 40)}...</small>
+    <div class="delete-confirm" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+                 background:#222; padding:10px; border-radius:8px; text-align:center; width:85%; border:1px solid red;">
+        <p style="margin:0 0 8px; font-size:14px; color:#fff;">
+            Are you sure you want to permanently delete this mod?<br>This action cannot be undone.
+        </p>
+        <button class="yes-delete" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:4px;">Delete</button>
+        <button class="no-delete" style="background:gray; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:4px;">Cancel</button>
+    </div>
+    `;
+
+    // Clicking anywhere except delete button opens editor
+    card.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("delete-btn") && !e.target.closest(".delete-confirm")) {
+    openEditor(mod.name, mod.script, mod.id);
+    }
+    });
+
+    const deleteBtn = card.querySelector(".delete-btn");
+    const confirmBox = card.querySelector(".delete-confirm");
+
+    deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmBox.style.display = "block";
+    });
+
+    confirmBox.querySelector(".no-delete").addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmBox.style.display = "none";
+    });
+
+    confirmBox.querySelector(".yes-delete").addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await deleteDoc(doc(db, "users", username, "MODS", mod.id));
+    loadMods();
+    });
+
+    modsContainer.appendChild(card);
+    });
+    }
+
+
+
+
+
+
+    function openEditor(name = "", script = "", modId = null) {
+    modNameInput.value = name;
+    scriptArea.value = script;
+    editingModId = modId;
+    modEditor.style.display = "flex";
+    }
+
+    let maxModsAllowed = 3; // default, will load from Firestore
+
+    async function loadMaxModsAllowed() {
+    const userRef = doc(db, "users", username);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+    maxModsAllowed = snap.data().maxModsAllowed || 3;
+    } else {
+    await setDoc(userRef, { maxModsAllowed: 3 }, { merge: true });
+    }
+    }
+
+    await loadMaxModsAllowed();
+
+
+    // Create modal dynamically
+    const payModal = document.createElement("div");
+    payModal.style.position = "fixed";
+    payModal.style.inset = "0";
+    payModal.style.background = "rgba(0,0,0,0.8)";
+    payModal.style.display = "none";
+    payModal.style.alignItems = "center";
+    payModal.style.justifyContent = "center";
+    payModal.style.zIndex = "1000";
+
+    payModal.innerHTML = `
+    <div style="background:#2c2c2c; padding:20px; border-radius:8px; text-align:center; max-width:300px; color:white;">
+        <h2>Limit Reached</h2>
+        <p>You've reached your limit of ${maxModsAllowed} mods.</p>
+        <button id="payCancel" style="margin:10px; background:#d9534f; border:none; padding:10px; color:white; cursor:pointer;">Ok</button>
+    </div>
+
+    `;
+
+    const payCancelBtn = payModal.querySelector("#payCancel");
+
+    document.body.appendChild(payModal);
+
+    payCancelBtn.onclick = () => {
+    payModal.style.display = "none";
+        };
+
+        console.log(`
+      _______      _________      _____       ______     _
+     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+    | |               | |      / /     \\ \\   | |   | |  | |
+    \\ \\______         | |      | |     | |   | |___/ /  | |
+     \\______ \\        | |      | |     | |   |  ____/   | |
+            \\ \\       | |      | |     | |   | |        | |
+     _      | |       | |      \\ \\     / /   | |        |_|
+    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+     \\_______/        |_|        \\_____/     |_|        |_|
+
+     Keep your account safe! Do not send any information from
+     here to anyone or paste any text here.
+
+     If someone is asking you to copy or paste text here then
+     you're giving someone access to your account.
+`);
+
+
+        const banSnap = await getDocs(collection(db, "users", username, "ban"));
+        if (!banSnap.empty) {
+            window.location.href = "AccountBan.html";
+        }
+
+    createModBtn.addEventListener("click", () => {
+    if (mods.length >= maxModsAllowed) {
+    console.log("h")
+    payModal.style.display = "flex";
+    return;
+    } else {
+
+    openEditor();
+    }
+    openEditor();
+    });
+
+    saveModBtn.addEventListener("click", async () => {
+    const name = modNameInput.value.trim();
+    const script = scriptArea.value;
+    if (!name) return;
+
+    const modsRef = collection(db, "users", username, "MODS");
+
+    if (editingModId) {
+    // update the existing mod
+    await updateDoc(doc(db, "users", username, "MODS", editingModId), { name, script });
+    } else {
+    // check if name exists already
+    const snapshot = await getDocs(modsRef);
+    let existingId = null;
+    snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.name.toLowerCase() === name.toLowerCase()) {
+    existingId = docSnap.id;
+    }
+    });
+
+    if (existingId) {
+    await updateDoc(doc(db, "users", username, "MODS", existingId), { name, script });
+    } else {
+    await addDoc(modsRef, { name, script });
+    }
+    }
+
+    await loadMods();
+    modEditor.style.display = "none";
+    editingModId = null;
+
+    // build BP zip
+    const zip = new JSZip();
+    const bpFolder = zip.folder(`${name}_BP`);
+    const functionsFolder = bpFolder.folder("functions");
+
+    const manifest = {
+    format_version: 2,
+    header: {
+    name: name,
+    description: "Generated mod from Mod Workshop",
+    uuid: crypto.randomUUID(),
+    version: [1, 0, 0],
+    min_engine_version: [1, 19, 0]
+    },
+    modules: [
+    {
+    type: "data",
+    uuid: crypto.randomUUID(),
+    version: [1, 0, 0]
+    }
+    ]
+    };
+
+    functionsFolder.file("loop.mcfunction", script);
+    functionsFolder.file("tick.json", JSON.stringify({ values: ["loop"] }, null, 4));
+    bpFolder.file("manifest.json", JSON.stringify(manifest, null, 4));
+
+    try {
+    const res = await fetch("pack_icon.png");
+    const iconBlob = await res.blob();
+    bpFolder.file("pack_icon.png", iconBlob);
+    } catch { }
+
+    zip.generateAsync({ type: "blob" }).then(content => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = `${name}_BP.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    });
+    });
+    </script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2c2c2c;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin: 0;
+        }
+
+        .top-right {
+            font-size: 18px;
+            color: #aaa;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mods-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .mod-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            width: 200px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+            .mod-card:hover {
+                background: #444;
+            }
+
+        .plus-btn {
+            width: 80px;
+            height: 80px;
+            background: #444;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+            .plus-btn:hover {
+                background: #666;
+            }
+
+        .mod-editor {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        input, textarea {
+            width: 100%;
+            background: #2c2c2c;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-family: monospace;
+            resize: none;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background: #45a049;
+            }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 id="usernameDisplay"></h1>
+        <div class="top-right">Workshop</div>
+    </header>
+    <main>
+        <div class="mods-container" id="modsContainer"></div>
+        <div class="plus-btn" id="createMod">+</div>
+        <div class="mod-editor" id="modEditor">
+            <input type="text" id="modName" placeholder="Enter mod name">
+            <textarea id="scriptArea" placeholder="// Write your mod script here..."></textarea>
+            <button id="saveMod">Save Mod & Download BP</button>
+        </div>
+    </main>
+</body>
+</html>
