@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -165,6 +165,15 @@
                 return;
             }
 
+            // Blocked usernames list
+            const blockedUsernames = ["admin", "moderator", "root", "owner", "system", "fuck", "bitch", "dick", "penis", "sex","date", "white", "black","diddy","black","suck","itler","virus","hacker","tits","boobs","ass","piss","nasi","nazi","Death","Sucide","kill","star","lmao","dam","kkk"];
+
+            // Check if username contains any blocked word
+            if (blockedUsernames.some(word => username.toLowerCase().includes(word))) {
+                showStatus("That username is not allowed.", true);
+                return;
+            }
+
             const userRef = doc(db, "users", username);
             const docSnap = await getDoc(userRef);
 
@@ -182,6 +191,7 @@
                 showStatus(`Account created!`);
             }
         };
+
 
         window.login = async function () {
             const username = document.getElementById("loginUsername").value.trim();
