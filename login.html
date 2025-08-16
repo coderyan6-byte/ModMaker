@@ -166,13 +166,18 @@
             }
 
             // Blocked usernames list
-            const blockedUsernames = ["admin", "moderator", "root", "owner", "system", "fuck", "bitch", "dick", "penis", "sex","date", "white", "black","diddy","black","suck","itler","virus","hacker","tits","boobs","ass","piss","nasi","nazi","Death","Sucide","kill","star","lmao","dam","kkk"];
+            const blockedUsernames = ["admin", "moderator", "root", "owner", "system", "fuck", "bitch", "dick", "penis", "sex","date", "white", "black","diddy","black","suck","itler","virus","hacker","tits","boobs","ass","piss","nasi","nazi","Death","Sucide","kill","star","lmao","dam","kkk"," "];
 
             // Check if username contains any blocked word
             if (blockedUsernames.some(word => username.toLowerCase().includes(word))) {
                 showStatus("That username is not allowed.", true);
                 return;
             }
+
+    if (!/^[A-Za-z0-9_]+$/.test(username)) {
+        showStatus("Username can only contain letters, numbers, and underscores (_).", true);
+        return;
+    }
 
             const userRef = doc(db, "users", username);
             const docSnap = await getDoc(userRef);
@@ -217,3 +222,4 @@
     </script>
 </body>
 </html>
+
