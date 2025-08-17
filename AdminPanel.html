@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Admin Panel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
         body {
             margin: 0;
@@ -20,20 +20,63 @@
 
         h1 {
             color: #ff4c4c;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
             text-align: center;
         }
 
-        .user-list {
+        .tab-buttons {
             display: flex;
-            flex-direction: column;
             gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+            .tab-buttons button {
+                padding: 0.5rem 1rem;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: bold;
+                background: #2c2c3e;
+                color: #fff;
+            }
+
+                .tab-buttons button.active {
+                    background: #ff4c4c;
+                }
+
+        .search-wrap {
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 1rem;
+            display: none; /* shown only on Users tab */
+        }
+
+            .search-wrap input {
+                width: 100%;
+                padding: 0.6rem;
+                border-radius: 8px;
+                border: none;
+                font-size: 1rem;
+            }
+
+        .section {
+            display: none;
             width: 100%;
             max-width: 700px;
         }
 
-        .user-card {
-            background-color: #2c2c3e;
+            .section.active {
+                display: block;
+            }
+
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .card {
+            background: #2c2c3e;
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.4);
@@ -42,16 +85,16 @@
             align-items: center;
         }
 
-            .user-card h3 {
+            .card h3 {
                 margin: 0 0 0.5rem;
             }
 
-            .user-card p {
-                margin: 0.5rem 0;
+            .card p {
+                margin: 0.4rem 0;
                 text-align: center;
             }
 
-            .user-card button {
+            .card button {
                 background-color: #ff4c4c;
                 color: #fff;
                 border: none;
@@ -62,12 +105,12 @@
                 margin-top: 0.5rem;
             }
 
-                .user-card button:hover {
+                .card button:hover {
                     background-color: #e03e3e;
                 }
 
         .mods {
-            margin-top: 1rem;
+            margin-top: 0.75rem;
             width: 100%;
             text-align: left;
         }
@@ -78,10 +121,7 @@
 
         .modal {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             background: rgba(0,0,0,0.7);
             display: none;
             align-items: center;
@@ -125,22 +165,50 @@
 </head>
 <body>
     <h1>Admin Panel</h1>
-    <div id="userList" class="user-list"></div>
 
+    <!-- Tabs -->
+    <div class="tab-buttons">
+        <button id="tabUsers" class="active" onclick="showTab('users')">Users</button>
+        <button id="tabBanned" onclick="showTab('banned')">Banned</button>
+        <button id="tabAppeals" onclick="showTab('appeals')">Appeals</button>
+    </div>
+
+    <!-- Search (Users only) -->
+    <div id="searchWrap" class="search-wrap">
+        <input id="searchInput" type="text" placeholder="Type a username and press Enter…" />
+    </div>
+
+    <!-- Users Section -->
+    <section id="users" class="section active">
+        <div id="userList" class="list"></div>
+    </section>
+
+    <!-- Banned Section -->
+    <section id="banned" class="section">
+        <div id="bannedList" class="list"></div>
+    </section>
+
+    <!-- Appeals Section -->
+    <section id="appeals" class="section">
+        <div id="appealsList" class="list"></div>
+    </section>
+
+    <!-- Ban Modal -->
     <div id="banModal" class="modal">
         <div class="modal-content">
             <h2>Ban User</h2>
             <textarea id="banReason" placeholder="Enter reason..." rows="3"></textarea>
-            <input type="date" id="banDate">
+            <input type="date" id="banDate" />
             <button id="confirmBan">Confirm Ban</button>
         </div>
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <script>
+        // --- Firebase init ---
         const firebaseConfig = {
             apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
             authDomain: "minecraftaddoncreator.firebaseapp.com",
@@ -149,31 +217,78 @@
             messagingSenderId: "575674413085",
             appId: "1:575674413085:web:7b52ae5d59c418002816f4"
         };
-
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // --- Elements ---
         const currentUsername = localStorage.getItem("username");
+        const usersSection = document.getElementById("users");
+        const bannedSection = document.getElementById("banned");
+        const appealsSection = document.getElementById("appeals");
         const userList = document.getElementById("userList");
+        const bannedList = document.getElementById("bannedList");
+        const appealsList = document.getElementById("appealsList");
+        const searchWrap = document.getElementById("searchWrap");
+        const searchInput = document.getElementById("searchInput");
 
+        // --- Tabs ---
+        function showTab(which) {
+            // buttons
+            document.querySelectorAll('.tab-buttons button').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab' + which.charAt(0).toUpperCase() + which.slice(1)).classList.add('active');
+            // sections
+            [usersSection, bannedSection, appealsSection].forEach(s => s.classList.remove('active'));
+            document.getElementById(which).classList.add('active');
+            // search visibility
+            searchWrap.style.display = (which === 'users') ? 'block' : 'none';
+        }
+
+        // --- Search (press Enter to filter) ---
+        function filterUsersByTerm(term) {
+            const q = (term || "").toLowerCase();
+            document.querySelectorAll("#userList .card").forEach(card => {
+                const uname = card.getAttribute("data-username") || "";
+                card.style.display = uname.includes(q) ? "flex" : "none";
+            });
+        }
+        searchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                filterUsersByTerm(searchInput.value.trim());
+            }
+        });
+
+        // --- Admin gate ---
         db.collection("users").doc(currentUsername).get().then(doc => {
             const userData = doc.data();
             if (!doc.exists || !userData || userData.admin !== true) {
                 document.body.innerHTML = "<h1>Access Denied</h1><p>You are not authorized to view this page.</p>";
                 return;
             }
+            // load data once admin is confirmed
+            loadUsersAndBanned();
+            loadAppeals();
+        });
+
+        // --- Load Users + Banned in one pass ---
+        function loadUsersAndBanned() {
+            userList.innerHTML = "";
+            bannedList.innerHTML = "";
 
             db.collection("users").get().then(snapshot => {
                 snapshot.forEach(userDoc => {
                     const username = userDoc.id;
                     const data = userDoc.data();
 
+                    // check ban subdoc
                     db.collection("users").doc(username).collection("ban").doc("info").get().then(banDoc => {
                         const isBanned = banDoc.exists;
 
-                        const card = document.createElement("div");
-                        card.className = "user-card";
-                        card.innerHTML = `
+                        // Build user card
+                        const userCard = document.createElement("div");
+                        userCard.className = "card";
+                        userCard.setAttribute("data-username", username.toLowerCase());
+                        userCard.innerHTML = `
                   <h3>${username}</h3>
                   <p>User ID: ${data.userId || "Unknown"}</p>
                   <p>Status: ${isBanned ? "Banned" : "Active"}</p>
@@ -182,9 +297,9 @@
                   </button>
                   <div class="mods" id="mods-${username}"><em>Loading mods...</em></div>
                 `;
-                        userList.appendChild(card);
+                        userList.appendChild(userCard);
 
-                        // Load MODS
+                        // Load MODS for the user card
                         db.collection("users").doc(username).collection("MODS").get().then(modsSnapshot => {
                             const modsContainer = document.getElementById(`mods-${username}`);
                             if (modsSnapshot.empty) {
@@ -193,35 +308,69 @@
                                 modsContainer.innerHTML = `<strong>Mods:</strong>`;
                                 modsSnapshot.forEach(modDoc => {
                                     const mod = modDoc.data();
-                                    const modElement = document.createElement("div");
-                                    modElement.innerHTML = `
-                        <p><strong>${mod.name || "Unnamed Mod"}</strong><br>
-                        ${mod.description || "No description"}</p>
-                      `;
-                                    modsContainer.appendChild(modElement);
+                                    const el = document.createElement("div");
+                                    el.innerHTML = `<p><strong>${mod.name || "Unnamed Mod"}</strong><br>${mod.description || "No description"}</p>`;
+                                    modsContainer.appendChild(el);
                                 });
                             }
                         });
+
+                        // If banned, also add to Banned list (simpler layout)
+                        if (isBanned) {
+                            const bannedCard = document.createElement("div");
+                            bannedCard.className = "card";
+                            bannedCard.innerHTML = `
+                    <h3>${username}</h3>
+                    <p>Status: Banned</p>
+                    <button onclick="unbanUser('${username}', this)">Unban User</button>
+                  `;
+                            bannedList.appendChild(bannedCard);
+                        }
                     });
                 });
             });
-        });
+        }
 
+        // --- Load Appeals ---
+        function loadAppeals() {
+            appealsList.innerHTML = "";
+            db.collection("appeals").orderBy("createdAt", "desc").get().then(snapshot => {
+                if (snapshot.empty) {
+                    appealsList.innerHTML = `<p><em>No appeals submitted.</em></p>`;
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const appeal = doc.data();
+                    const created = appeal.createdAt && typeof appeal.createdAt.toDate === "function"
+                        ? appeal.createdAt.toDate()
+                        : (appeal.createdAt || null);
+                    const when = created ? new Date(created).toLocaleString() : "Unknown date";
+
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.innerHTML = `
+                <h3>${appeal.username || "Unknown User"}</h3>
+                <p><strong>Message:</strong><br>${appeal.message || "(no message)"} </p>
+                <p><em>Submitted: ${when}</em></p>
+              `;
+                    appealsList.appendChild(card);
+                });
+            });
+        }
+
+        // --- Ban / Unban ---
         let selectedUser = null;
-
         function openBanModal(username) {
             selectedUser = username;
             document.getElementById("banModal").style.display = "flex";
         }
-
         document.getElementById("confirmBan").onclick = () => {
             const reason = document.getElementById("banReason").value.trim();
             const date = document.getElementById("banDate").value;
-
             if (!reason || !date) return;
 
             db.collection("users").doc(selectedUser).collection("ban").doc("info").set({
-                reason: reason,
+                reason,
                 duration: "Permanent",
                 dateIssued: date
             }).then(() => {
@@ -231,34 +380,42 @@
                 location.reload();
             });
         };
-
-        console.log(`
-      _______      _________      _____       ______     _
-     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-    | |               | |      / /     \\ \\   | |   | |  | |
-    \\ \\______         | |      | |     | |   | |___/ /  | |
-     \\______ \\        | |      | |     | |   |  ____/   | |
-            \\ \\       | |      | |     | |   | |        | |
-     _      | |       | |      \\ \\     / /   | |        |_|
-    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-     \\_______/        |_|        \\_____/     |_|        |_|
-
-     Keep your account safe! Do not send any information from
-     here to anyone or paste any text here.
-
-     If someone is asking you to copy or paste text here then
-     you're giving someone access to your account.
-`);
-
-
         function unbanUser(username, button) {
             db.collection("users").doc(username).collection("ban").doc("info").delete().then(() => {
-                button.textContent = "Ban User";
-                button.setAttribute("onclick", `openBanModal('${username}')`);
-                button.parentElement.querySelector("p:nth-child(3)").textContent = "Status: Active";
+                // If we're on Users tab, update the card UI
+                if (button && button.parentElement) {
+                    button.textContent = "Ban User";
+                    button.setAttribute("onclick", `openBanModal('${username}')`);
+                    const statusP = button.parentElement.querySelector("p:nth-child(3)");
+                    if (statusP) statusP.textContent = "Status: Active";
+                }
+                // Also refresh banned list (simplest is a reload to keep everything in sync)
+                location.reload();
             });
         }
+
+        // Default to Users tab with search visible
+        showTab('users');
+
+        // Console safety note (kept from your original)
+        console.log(`
+          _______      _________      _____       ______     _
+         / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+        / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+        | |               | |      / /     \\ \\   | |   | |  | |
+        \\ \\______         | |      | |     | |   | |___/ /  | |
+         \\______ \\        | |      | |     | |   |  ____/   | |
+                \\ \\       | |      | |     | |   | |        | |
+         _      | |       | |      \\ \\     / /   | |        |_|
+        \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+         \\_______/        |_|        \\_____/     |_|        |_|
+
+         Keep your account safe! Do not send any information from
+         here to anyone or paste any text here.
+
+         If someone is asking you to copy or paste text here then
+         you're giving someone access to your account.
+        `);
     </script>
 </body>
 </html>
