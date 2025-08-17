@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -77,7 +77,7 @@
         <h1>Account Banned</h1>
         <p id="status">Checking ban status...</p>
         <div class="details" id="banDetails" style="display:none;"></div>
-        <a href="/appeal" class="btn" id="appealBtn" style="display:none;">Submit Appeal</a>
+        <a href="appeal.html" class="btn" id="appealBtn" style="display:none;">Submit Appeal</a>
     </div>
 
     <!-- Firebase SDK (v9 compat) -->
@@ -105,7 +105,7 @@
 
         if (!username || !userId) {
             document.getElementById("status").textContent = "Missing user credentials.";
-            setTimeout(() => window.location.href = "main.html", 100);
+            setTimeout(() => window.location.href = "login.html", 100);
         } else {
             // 🔍 Look up ban info at users/[username]/ban/info
             db.collection("users").doc(username).collection("ban").doc("info").get().then(doc => {
