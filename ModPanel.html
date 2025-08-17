@@ -1,0 +1,445 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mod Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #1f1f2e;
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background: #2c2c3e;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+            .sidebar button {
+                margin: 0.5rem 0;
+                padding: 0.75rem;
+                background: #ff4c4c;
+                border: none;
+                border-radius: 8px;
+                color: #fff;
+                cursor: pointer;
+                font-weight: bold;
+            }
+
+                .sidebar button:hover {
+                    background: #e03e3e;
+                }
+
+        /* Main content */
+        .main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        h1 {
+            color: #ff4c4c;
+            margin-bottom: 1rem;
+        }
+
+        /* Search bar */
+        #searchBar {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.6rem;
+            border-radius: 6px;
+            border: none;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+
+        /* User & Banned galleries */
+        .user-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        #section-banned {
+            margin-top: 2rem; /* Space between users and banned */
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .user-card {
+            background: #2c2c3e;
+            padding: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+            .user-card h3 {
+                margin: 0.3rem 0;
+            }
+
+            .user-card p {
+                margin: 0.2rem 0;
+                text-align: center;
+            }
+
+            .user-card button {
+                background: #ff4c4c;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+                margin-top: 0.5rem;
+                color: #fff;
+            }
+
+                .user-card button:hover {
+                    background: #e03e3e;
+                }
+
+        /* Investigations */
+        .investigations {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .investigation-room {
+            background: #2c2c3e;
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        .chat {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #1f1f2e;
+            padding: 0.5rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+            .chat p {
+                margin: 0.3rem 0;
+            }
+
+        .chat-input {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+            .chat-input input {
+                flex: 1;
+                padding: 0.5rem;
+                border-radius: 6px;
+                border: none;
+            }
+
+            .chat-input button {
+                padding: 0.5rem 1rem;
+            }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #2c2c3e;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+            .modal-content textarea {
+                margin-bottom: 1rem;
+                padding: 0.5rem;
+                border-radius: 6px;
+                border: none;
+                font-size: 1rem;
+            }
+
+            .modal-content button {
+                padding: 0.75rem;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+                background: #ff4c4c;
+                color: #fff;
+            }
+
+                .modal-content button:hover {
+                    background: #e03e3e;
+                }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <button onclick="switchSection('users')">Users</button>
+        <button onclick="switchSection('banned')">Banned</button>
+        <button onclick="switchSection('appeals')">Appeals</button>
+        <button onclick="switchSection('investigations')">Investigations</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+        <h1>Mod Panel</h1>
+        <input type="text" id="searchBar" placeholder="Search users... (press Enter)">
+        <div id="section-users" class="user-gallery"></div>
+        <div id="section-banned" style="display:none;"></div>
+        <div id="section-appeals" style="display:none;"></div>
+        <div id="section-investigations" style="display:none;">
+            <button onclick="createInvestigation()">➕ New Investigation</button>
+            <div id="investigationsList" class="investigations"></div>
+        </div>
+    </div>
+
+    <!-- Warn Modal -->
+    <div id="warnModal" class="modal">
+        <div class="modal-content">
+            <h2>Warn User</h2>
+            <textarea id="warnReason" placeholder="Enter warning reason..." rows="3"></textarea>
+            <button onclick="confirmWarn()">Confirm Warn</button>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const currentUsername = localStorage.getItem("username");
+
+        let selectedUser = null;
+
+        // ✅ Restrict access if not a Mod
+        db.collection("users").doc(currentUsername).get().then(doc => {
+            if (!doc.exists || !doc.data().Mod) {
+                //alert("You do not have permission to access the Mod Panel.");
+                window.location.href = "index.html"; // redirect to home
+            }
+        });
+
+        // Switch sections
+        function switchSection(section) {
+            document.querySelectorAll(".main > div").forEach(div => {
+                if (div.id && div.id.startsWith("section-")) div.style.display = "none";
+            });
+            document.getElementById("section-" + section).style.display = "block";
+        }
+
+        // Load users into gallery
+        function loadUsers() {
+            const container = document.getElementById("section-users");
+            container.innerHTML = "";
+            db.collection("users").get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    const username = doc.id;
+                    const data = doc.data();
+                    const card = document.createElement("div");
+                    card.className = "user-card";
+                    card.innerHTML = `
+                            <h3>${username}</h3>
+                            <p>User ID: ${data.userId || "Unknown"}</p>
+                            <button onclick="openWarnModal('${username}')">Warn User</button>
+                        `;
+                    container.appendChild(card);
+                });
+            });
+        }
+
+        // Open warn modal
+        function openWarnModal(username) {
+            selectedUser = username;
+            document.getElementById("warnModal").style.display = "flex";
+        }
+
+        function confirmWarn() {
+            const reason = document.getElementById("warnReason").value.trim();
+            if (!reason) return //alert("Please provide a reason for the warning.");
+            db.collection("users").doc(selectedUser).collection("warnings").add({
+                reason: reason,
+                date: new Date().toISOString(),
+                issuedBy: currentUsername
+            }).then(() => {
+                document.getElementById("warnModal").style.display = "none";
+                document.getElementById("warnReason").value = "";
+                //alert("Warning issued to " + selectedUser);
+            });
+        }
+
+        // Load banned users into gallery
+        function loadBanned() {
+            const container = document.getElementById("section-banned");
+            container.innerHTML = "<h2>Banned Users</h2>";
+            db.collection("users").get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    const username = doc.id;
+                    db.collection("users").doc(username).collection("ban").doc("info").get().then(banDoc => {
+                        if (banDoc.exists) {
+                            const card = document.createElement("div");
+                            card.className = "user-card";
+                            card.innerHTML = `
+                                    <h3>${username}</h3>
+                                    <p>Status: Banned</p>
+                                    <button onclick="unbanUser('${username}', this)">Unban</button>
+                                `;
+                            container.appendChild(card);
+                        }
+                    });
+                });
+            });
+        }
+
+        function unbanUser(username, button) {
+            db.collection("users").doc(username).collection("ban").doc("info").delete().then(() => {
+                button.parentElement.remove();
+            });
+        }
+
+        // Load appeals
+        function loadAppeals() {
+            const container = document.getElementById("section-appeals");
+            container.innerHTML = "<h2>Appeals</h2>";
+            db.collection("appeals").get().then(snapshot => {
+                if (snapshot.empty) {
+                    container.innerHTML += "<p><em>No appeals found.</em></p>";
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const div = document.createElement("div");
+                    div.className = "user-card";
+                    div.innerHTML = `
+                            <h3>${data.username}</h3>
+                            <p>${data.reason}</p>
+                            <p>${data.details}</p>
+                        `;
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        // Investigations
+        function createInvestigation() {
+            const id = Date.now().toString();
+            db.collection("investigations").doc(id).set({
+                createdAt: new Date().toISOString(),
+                createdBy: currentUsername
+            });
+        }
+
+        function loadInvestigations() {
+            const list = document.getElementById("investigationsList");
+            list.innerHTML = "";
+            db.collection("investigations").onSnapshot(snapshot => {
+                list.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const inv = doc.data();
+                    const div = document.createElement("div");
+                    div.className = "investigation-room";
+                    div.innerHTML = `
+                            <h3>Investigation ${doc.id}</h3>
+                            <p>By: ${inv.createdBy}</p>
+                            <div class="chat" id="chat-${doc.id}"></div>
+                            <div class="chat-input">
+                                <input type="text" id="input-${doc.id}" placeholder="Type a message...">
+                                <button onclick="sendMessage('${doc.id}')">Send</button>
+                                <button onclick="stopInvestigation('${doc.id}')">Stop</button>
+                            </div>
+                        `;
+                    list.appendChild(div);
+                    loadChat(doc.id);
+
+                    // ✅ Send message with Enter
+                    document.getElementById("input-" + doc.id).addEventListener("keypress", e => {
+                        if (e.key === "Enter") sendMessage(doc.id);
+                    });
+                });
+            });
+        }
+
+        function loadChat(invId) {
+            db.collection("investigations").doc(invId).collection("chat")
+                .orderBy("time").onSnapshot(snapshot => {
+                    const chatBox = document.getElementById("chat-" + invId);
+                    chatBox.innerHTML = "";
+                    snapshot.forEach(doc => {
+                        const msg = doc.data();
+                        const p = document.createElement("p");
+                        p.textContent = msg.user + ": " + msg.text;
+                        chatBox.appendChild(p);
+                    });
+                });
+        }
+
+        function sendMessage(invId) {
+            const input = document.getElementById("input-" + invId);
+            const text = input.value.trim();
+            if (!text) return;
+            db.collection("investigations").doc(invId).collection("chat").add({
+                user: currentUsername,
+                text: text,
+                time: new Date()
+            });
+            input.value = "";
+        }
+
+        function stopInvestigation(invId) {
+            if (confirm("Closing this investigation will stop the chat room. Continue?")) {
+                db.collection("investigations").doc(invId).delete();
+            }
+        }
+
+        // Search bar
+        document.getElementById("searchBar").addEventListener("keypress", e => {
+            if (e.key === "Enter") {
+                const term = e.target.value.trim().toLowerCase();
+                document.querySelectorAll("#section-users .user-card").forEach(card => {
+                    card.style.display = card.innerText.toLowerCase().includes(term) ? "flex" : "none";
+                });
+            }
+        });
+
+        // Initial loads
+        loadUsers();
+        loadBanned();
+        loadAppeals();
+        loadInvestigations();
+    </script>
+</body>
+</html>
