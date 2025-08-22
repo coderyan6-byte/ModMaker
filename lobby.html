@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -260,6 +260,24 @@
         Opening mod tool<span class="dots"></span>
     </div>
 
+    <!-- Danger Modal -->
+    <div class="modal-overlay" id="dangerModal">
+        <div class="modal">
+            <header>
+                <h2>Account Notice</h2>
+                <button class="close-btn" id="dangerClose">✕</button>
+            </header>
+            <section>
+                <p>
+                    Your account has been reinstated but is currently on probation.
+                    Any further inappropriate actions will result in a permanent ban.
+                    Please follow the community guidelines carefully.
+                </p>
+            </section>
+        </div>
+    </div>
+
+
     <div class="container">
         <div class="lobby">
             <h1>Lobby</h1>
@@ -337,12 +355,28 @@
         let currentRating = 0;
         const userId = localStorage.getItem("userId") || localStorage.getItem("username") || "anon_user";
         const username = localStorage.getItem("username");
+        const dangerModal = document.getElementById("dangerModal");
+        const dangerClose = document.getElementById("dangerClose");
 
-if (!username || !userId) {
-    showStatus("Not logged in. Redirecting...", true);
-    setTimeout(() => window.location.href = "login.html", 100);
-} else {
-     }
+        // Check for Danger flag
+        const userSnap = await getDoc(doc(db, "users", username));
+        if (userSnap.exists() && userSnap.data().Danger) {
+            dangerModal.classList.add("show");
+        }
+
+        // Close handler
+        dangerClose.addEventListener("click", () => dangerModal.classList.remove("show"));
+        dangerModal.addEventListener("click", e => { if (e.target === dangerModal) dangerModal.classList.remove("show"); });
+
+
+
+
+
+        if (!username || !userId) {
+            showStatus("Not logged in. Redirecting...", true);
+            setTimeout(() => window.location.href = "login.html", 100);
+        } else {
+        }
 
         const banSnap = await getDocs(collection(db, "users", username, "ban"));
         if (!banSnap.empty) {
@@ -358,22 +392,22 @@ if (!username || !userId) {
         }
 
         console.log(`
-      _______      _________      _____       ______     _
-     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-    | |               | |      / /     \\ \\   | |   | |  | |
-    \\ \\______         | |      | |     | |   | |___/ /  | |
-     \\______ \\        | |      | |     | |   |  ____/   | |
-            \\ \\       | |      | |     | |   | |        | |
-     _      | |       | |      \\ \\     / /   | |        |_|
-    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-     \\_______/        |_|        \\_____/     |_|        |_|
+          _______      _________      _____       ______     _
+         / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+        / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+        | |               | |      / /     \\ \\   | |   | |  | |
+        \\ \\______         | |      | |     | |   | |___/ /  | |
+         \\______ \\        | |      | |     | |   |  ____/   | |
+                \\ \\       | |      | |     | |   | |        | |
+         _      | |       | |      \\ \\     / /   | |        |_|
+        \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+         \\_______/        |_|        \\_____/     |_|        |_|
 
-     Keep your account safe! Do not send any information from
-     here to anyone or paste any text here.
+         Keep your account safe! Do not send any information from
+         here to anyone or paste any text here.
 
-     If someone is asking you to copy or paste text here then
-     you're giving someone access to your account.
+         If someone is asking you to copy or paste text here then
+         you're giving someone access to your account.
 `);
 
 
