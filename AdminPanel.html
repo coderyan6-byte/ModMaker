@@ -374,6 +374,11 @@
                 duration: "Permanent",
                 dateIssued: date
             }).then(() => {
+
+                db.collection("users").doc(selectedUser).set({
+                    Danger: reason
+                }, { merge: true });
+
                 document.getElementById("banModal").style.display = "none";
                 document.getElementById("banReason").value = "";
                 document.getElementById("banDate").value = "";
