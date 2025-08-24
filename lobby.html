@@ -358,6 +358,12 @@
         const dangerModal = document.getElementById("dangerModal");
         const dangerClose = document.getElementById("dangerClose");
 
+        if (!username || !userId) {
+            showStatus("Not logged in. Redirecting...", true);
+            setTimeout(() => window.location.href = "login.html", 100);
+        } else {
+        }
+        
         // Check for Danger flag
         const userSnap = await getDoc(doc(db, "users", username));
         if (userSnap.exists() && userSnap.data().Danger) {
@@ -372,11 +378,11 @@
 
 
 
-        if (!username || !userId) {
-            showStatus("Not logged in. Redirecting...", true);
-            setTimeout(() => window.location.href = "login.html", 100);
-        } else {
-        }
+    //    if (!username || !userId) {
+//            showStatus("Not logged in. Redirecting...", true);
+//            setTimeout(() => window.location.href = "login.html", 100);
+//        } else {
+ //       }
 
         const banSnap = await getDocs(collection(db, "users", username, "ban"));
         if (!banSnap.empty) {
@@ -473,4 +479,5 @@
     </script>
 </body>
 </html>
+
 
