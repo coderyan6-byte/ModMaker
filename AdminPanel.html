@@ -139,7 +139,8 @@
             align-items: center;
         }
 
-            .modal-content input, .modal-content textarea {
+            .modal-content input,
+            .modal-content textarea {
                 width: 100%;
                 margin-bottom: 1rem;
                 padding: 0.5rem;
@@ -148,20 +149,57 @@
                 font-size: 1rem;
             }
 
-            .modal-content button {
-                width: 100%;
-                padding: 0.75rem;
-                background-color: #ff4c4c;
-                color: #fff;
+        /* --- Modal Action Buttons --- */
+        .modal-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+            .modal-actions button {
+                flex: 1;
+                padding: 0.6rem;
                 border: none;
                 border-radius: 8px;
                 font-weight: bold;
+                cursor: pointer;
+                width: auto; /* override 100% width */
             }
 
-                .modal-content button:hover {
-                    background-color: #e03e3e;
-                }
+        /* Confirm Resolve button */
+        .confirm-resolve {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+            .confirm-resolve:hover {
+                background-color: #218838;
+            }
+
+        /* Confirm Deny button */
+        .confirm-deny {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+            .confirm-deny:hover {
+                background-color: #c82333;
+            }
+
+        /* Cancel button */
+        #modal-cancel {
+            background-color: #6c757d;
+            color: #fff;
+        }
+
+            #modal-cancel:hover {
+                background-color: #5a6268;
+            }
     </style>
+
+
 </head>
 <body>
     <h1>Admin Panel</h1>
@@ -202,6 +240,20 @@
             <button id="confirmBan">Confirm Ban</button>
         </div>
     </div>
+
+    <div id="modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div class="modal-actions">
+                <!-- Put Confirm first, Cancel second -->
+                <button id="modal-confirm">Resolve</button>
+                <button id="modal-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
 
     <!-- Firebase SDK (compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -289,14 +341,14 @@
                         userCard.className = "card";
                         userCard.setAttribute("data-username", username.toLowerCase());
                         userCard.innerHTML = `
-                  <h3>${username}</h3>
-                  <p>User ID: ${data.userId || "Unknown"}</p>
-                  <p>Status: ${isBanned ? "Banned" : "Active"}</p>
-                  <button onclick="${isBanned ? `unbanUser('${username}', this)` : `openBanModal('${username}')`}">
-                    ${isBanned ? "Unban User" : "Ban User"}
-                  </button>
-                  <div class="mods" id="mods-${username}"><em>Loading mods...</em></div>
-                `;
+                              <h3>${username}</h3>
+                              <p>User ID: ${data.userId || "Unknown"}</p>
+                              <p>Status: ${isBanned ? "Banned" : "Active"}</p>
+                              <button onclick="${isBanned ? `unbanUser('${username}', this)` : `openBanModal('${username}')`}">
+                                ${isBanned ? "Unban User" : "Ban User"}
+                              </button>
+                              <div class="mods" id="mods-${username}"><em>Loading mods...</em></div>
+                            `;
                         userList.appendChild(userCard);
 
                         // Load MODS for the user card
@@ -320,10 +372,10 @@
                             const bannedCard = document.createElement("div");
                             bannedCard.className = "card";
                             bannedCard.innerHTML = `
-                    <h3>${username}</h3>
-                    <p>Status: Banned</p>
-                    <button onclick="unbanUser('${username}', this)">Unban User</button>
-                  `;
+                                <h3>${username}</h3>
+                                <p>Status: Banned</p>
+                                <button onclick="unbanUser('${username}', this)">Unban User</button>
+                              `;
                             bannedList.appendChild(bannedCard);
                         }
                     });
@@ -332,6 +384,36 @@
         }
 
         // --- Load Appeals ---
+        function openModal(title, bodyHTML, onConfirm, confirmLabel = "Resolve") {
+            const modal = document.getElementById("modal");
+            const modalTitle = document.getElementById("modal-title");
+            const modalBody = document.getElementById("modal-body");
+            const confirmBtn = document.getElementById("modal-confirm");
+            const cancelBtn = document.getElementById("modal-cancel");
+
+            modalTitle.textContent = title;
+            modalBody.innerHTML = bodyHTML;
+            confirmBtn.textContent = confirmLabel;
+
+            // 🔹 Reset all confirm button classes first
+            confirmBtn.className = "";
+            confirmBtn.classList.add(confirmLabel === "Deny" ? "confirm-deny" : "confirm-resolve");
+
+            modal.style.display = "flex";
+
+            confirmBtn.onclick = () => {
+                if (onConfirm) onConfirm();
+                modal.style.display = "none";
+            };
+            cancelBtn.onclick = () => {
+                modal.style.display = "none";
+            };
+        }
+
+
+
+
+
         function loadAppeals() {
             appealsList.innerHTML = "";
             db.collection("appeals").orderBy("createdAt", "desc").get().then(snapshot => {
@@ -339,6 +421,7 @@
                     appealsList.innerHTML = `<p><em>No appeals submitted.</em></p>`;
                     return;
                 }
+
                 snapshot.forEach(doc => {
                     const appeal = doc.data();
                     const created = appeal.createdAt && typeof appeal.createdAt.toDate === "function"
@@ -348,15 +431,62 @@
 
                     const card = document.createElement("div");
                     card.className = "card";
+
+                    let resolvedMsg = appeal.resolvedMessage
+                        ? `<p style="color:green;"><strong>${appeal.resolvedMessage}</strong></p>`
+                        : "";
+
                     card.innerHTML = `
                 <h3>${appeal.username || "Unknown User"}</h3>
                 <p><strong>Message:</strong><br>${appeal.message || "(no message)"} </p>
                 <p><em>Submitted: ${when}</em></p>
-              `;
+                ${resolvedMsg}
+                <div class="actions"></div>
+            `;
+
+                    const actionsDiv = card.querySelector(".actions");
+
+                    if (!appeal.resolvedMessage) {
+                        // Resolve button
+                        const resolveBtn = document.createElement("button");
+                        resolveBtn.textContent = "Resolve";
+                        resolveBtn.onclick = () => {
+                            openModal("Resolve Appeal", `
+                        <textarea id="resolve-reason" placeholder="Enter resolution message..." style="width:100%;height:80px;"></textarea>
+                    `, () => {
+                                const reason = document.getElementById("resolve-reason").value.trim();
+                                if (reason !== "") {
+                                    const resolvedMessage = `Resolved by ${currentUsername}: ${reason}`;
+                                    db.collection("appeals").doc(doc.id).update({
+                                        resolvedMessage: resolvedMessage
+                                    }).then(() => loadAppeals());
+                                }
+                            });
+                        };
+
+                        // Deny button
+                        const denyBtn = document.createElement("button");
+                        denyBtn.textContent = "Deny";
+                        denyBtn.onclick = () => {
+                            openModal("Deny Appeal", `<p>Are you sure you want to deny this appeal?</p>`, () => {
+                                db.collection("appeals").doc(doc.id).delete().then(() => loadAppeals());
+                            }, "Deny");
+                        };
+
+                        actionsDiv.appendChild(resolveBtn);
+                        actionsDiv.appendChild(denyBtn);
+                    }
+
                     appealsList.appendChild(card);
                 });
             });
         }
+
+
+
+
+
+
 
         // --- Ban / Unban ---
         let selectedUser = null;
@@ -404,23 +534,23 @@
 
         // Console safety note (kept from your original)
         console.log(`
-          _______      _________      _____       ______     _
-         / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-        / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-        | |               | |      / /     \\ \\   | |   | |  | |
-        \\ \\______         | |      | |     | |   | |___/ /  | |
-         \\______ \\        | |      | |     | |   |  ____/   | |
-                \\ \\       | |      | |     | |   | |        | |
-         _      | |       | |      \\ \\     / /   | |        |_|
-        \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-         \\_______/        |_|        \\_____/     |_|        |_|
+                      _______      _________      _____       ______     _
+                     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+                    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+                    | |               | |      / /     \\ \\   | |   | |  | |
+                    \\ \\______         | |      | |     | |   | |___/ /  | |
+                     \\______ \\        | |      | |     | |   |  ____/   | |
+                            \\ \\       | |      | |     | |   | |        | |
+                     _      | |       | |      \\ \\     / /   | |        |_|
+                    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+                     \\_______/        |_|        \\_____/     |_|        |_|
 
-         Keep your account safe! Do not send any information from
-         here to anyone or paste any text here.
+                     Keep your account safe! Do not send any information from
+                     here to anyone or paste any text here.
 
-         If someone is asking you to copy or paste text here then
-         you're giving someone access to your account.
-        `);
+                     If someone is asking you to copy or paste text here then
+                     you're giving someone access to your account.
+                    `);
     </script>
 </body>
 </html>
