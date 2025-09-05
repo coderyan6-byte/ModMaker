@@ -497,59 +497,66 @@
         };
 
         // Updated: viewProfile now uses a UI modal (no alert)
-        window.viewProfile = async function (targetUser) {
-            const targetRef = doc(db, "users", targetUser);
-            const [targetSnap, meSnap] = await Promise.all([getDoc(targetRef), getDoc(userRef)]);
+window.viewProfile = async function (targetUser) {
+    const targetRef = doc(db, "users", targetUser);
+    const [targetSnap, meSnap] = await Promise.all([getDoc(targetRef), getDoc(userRef)]);
 
-            if (targetSnap.exists()) {
-                const data = targetSnap.data();
-                const myData = meSnap.exists() ? meSnap.data() : {};
-                const myFollowing = myData.following || [];
-                const isFollowing = myFollowing.includes(targetUser);
+    if (targetSnap.exists()) {
+        const data = targetSnap.data();
+        const myData = meSnap.exists() ? meSnap.data() : {};
+        const myFollowing = myData.following || [];
+        const isFollowing = myFollowing.includes(targetUser);
 
-                modalUsernameEl.textContent = `👤 ${targetUser}`;
-                modalDescriptionEl.textContent = data.description || "No description yet.";
-                setModalActions(targetUser, isFollowing);
+        // Build username display
+        let usernameDisplay = `👤 ${targetUser}`;
+        if (data.admin) {
+            usernameDisplay += ` <img src="staff.png" alt="Admin" title="Admin" style="width:16px; height:16px; vertical-align:middle; margin-left:4px;">`;
+        }
+        modalUsernameEl.innerHTML = usernameDisplay;
 
-                // --- MOD LIST ---
-                const modsListEl = document.createElement("div");
-                modsListEl.style.marginTop = "15px";
-                modsListEl.innerHTML = "<h3>User Mods:</h3>";
+        modalDescriptionEl.textContent = data.description || "No description yet.";
+        setModalActions(targetUser, isFollowing);
 
-                // Query the MODS subcollection
-                const modsRef = collection(db, "users", targetUser, "MODS");
-                const modsSnap = await getDocs(modsRef);
+        // --- MOD LIST ---
+        const modsListEl = document.createElement("div");
+        modsListEl.style.marginTop = "15px";
+        modsListEl.innerHTML = "<h3>User Mods:</h3>";
 
-                if (!modsSnap.empty) {
-                    modsSnap.forEach(docSnap => {
-                        const mod = docSnap.data();
-                        const modDiv = document.createElement("div");
-                        modDiv.style.border = "1px solid #555";
-                        modDiv.style.padding = "8px";
-                        modDiv.style.marginBottom = "8px";
-                        modDiv.innerHTML = `<strong>${mod.name}</strong><br><small>${(mod.script || "").slice(0, 50)}...</small>`;
+        // Query the MODS subcollection
+        const modsRef = collection(db, "users", targetUser, "MODS");
+        const modsSnap = await getDocs(modsRef);
 
-                        // Download button
-                        const dlBtn = document.createElement("button");
-                        dlBtn.textContent = "Download BP";
-                        dlBtn.style.marginTop = "5px";
-                        dlBtn.onclick = () => downloadModBP(mod.name, mod.script || "");
+        if (!modsSnap.empty) {
+            modsSnap.forEach(docSnap => {
+                const mod = docSnap.data();
+                const modDiv = document.createElement("div");
+                modDiv.style.border = "1px solid #555";
+                modDiv.style.padding = "8px";
+                modDiv.style.marginBottom = "8px";
+                modDiv.innerHTML = `<strong>${mod.name}</strong><br><small>${(mod.script || "").slice(0, 50)}...</small>`;
 
-                        modDiv.appendChild(document.createElement("br"));
-                        modDiv.appendChild(dlBtn);
-                        modsListEl.appendChild(modDiv);
-                    });
-                } else {
-                    modsListEl.innerHTML += "<p>No mods yet.</p>";
-                }
+                // Download button
+                const dlBtn = document.createElement("button");
+                dlBtn.textContent = "Download BP";
+                dlBtn.style.marginTop = "5px";
+                dlBtn.onclick = () => downloadModBP(mod.name, mod.script || "");
 
-                modalDescriptionEl.appendChild(modsListEl);
+                modDiv.appendChild(document.createElement("br"));
+                modDiv.appendChild(dlBtn);
+                modsListEl.appendChild(modDiv);
+            });
+        } else {
+            modsListEl.innerHTML += "<p>No mods yet.</p>";
+        }
 
-                openModal();
-            } else {
-                showStatus("User not found.", true);
-            }
-        };
+        modalDescriptionEl.appendChild(modsListEl);
+
+        openModal();
+    } else {
+        showStatus("User not found.", true);
+    }
+};
+
 
 
         // --- Download BP function ---
