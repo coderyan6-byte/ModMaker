@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -125,176 +126,156 @@
         </div>
     </main>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js";
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
-            authDomain: "minecraftaddoncreator.firebaseapp.com",
-            projectId: "minecraftaddoncreator",
-            storageBucket: "minecraftaddoncreator.appspot.com",
-            messagingSenderId: "575674413085",
-            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+        authDomain: "minecraftaddoncreator.firebaseapp.com",
+        projectId: "minecraftaddoncreator",
+        storageBucket: "minecraftaddoncreator.appspot.com",
+        messagingSenderId: "575674413085",
+        appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        const modsContainer = document.getElementById("modsContainer");
-        const searchInput = document.getElementById("searchInput");
-        const searchBtn = document.getElementById("searchBtn");
-        const prevPageBtn = document.getElementById("prevPage");
-        const nextPageBtn = document.getElementById("nextPage");
-        const pageInfo = document.getElementById("pageInfo");
+    const modsContainer = document.getElementById("modsContainer");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const prevPageBtn = document.getElementById("prevPage");
+    const nextPageBtn = document.getElementById("nextPage");
+    const pageInfo = document.getElementById("pageInfo");
 
-        let allMods = [];
-        let filteredMods = [];
-        let currentPage = 1;
-        const modsPerPage = 4;
+    let allMods = [];
+    let filteredMods = [];
+    let currentPage = 1;
+    const modsPerPage = 4;
 
-        async function fetchMods() {
-            allMods = [];
-            const usersSnap = await getDocs(collection(db, "users"));
+    async function fetchMods() {
+        allMods = [];
+        const usersSnap = await getDocs(collection(db, "users"));
 
-            for (const userDoc of usersSnap.docs) {
-                const username = userDoc.id;
-                const modsSnap = await getDocs(collection(db, `users/${username}/MODS`));
+        for (const userDoc of usersSnap.docs) {
+            const username = userDoc.id;
+            const userData = userDoc.data();
+            const isAdmin = !!userData.admin; // ✅ check if user is admin
 
-                modsSnap.forEach(modDoc => {
-                    const data = modDoc.data();
-                    allMods.push({
-                        name: data.name || "Unnamed Mod",
-                        script: data.script || "",
-                        owner: username
-                    });
+            const modsSnap = await getDocs(collection(db, `users/${username}/MODS`));
+
+            modsSnap.forEach(modDoc => {
+                const data = modDoc.data();
+                allMods.push({
+                    name: data.name || "Unnamed Mod",
+                    script: data.script || "",
+                    owner: username,
+                    ownerIsAdmin: isAdmin // ✅ store admin flag
                 });
-            }
-
-            filteredMods = [...allMods];
-            renderPage();
-        }
-
-        console.log(`
-      _______      _________      _____       ______     _
-     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-    | |               | |      / /     \\ \\   | |   | |  | |
-    \\ \\______         | |      | |     | |   | |___/ /  | |
-     \\______ \\        | |      | |     | |   |  ____/   | |
-            \\ \\       | |      | |     | |   | |        | |
-     _      | |       | |      \\ \\     / /   | |        |_|
-    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-     \\_______/        |_|        \\_____/     |_|        |_|
-
-     Keep your account safe! Do not send any information from
-     here to anyone or paste any text here.
-
-     If someone is asking you to copy or paste text here then
-     you're giving someone access to your account.
-`);
-
-
-        function renderPage() {
-            modsContainer.innerHTML = "";
-            const start = (currentPage - 1) * modsPerPage;
-            const end = start + modsPerPage;
-            const modsToShow = filteredMods.slice(start, end);
-
-            modsToShow.forEach(mod => {
-                const card = document.createElement("div");
-                card.className = "mod-card";
-                card.innerHTML = `
-                        <h3>${mod.name}</h3>
-                        <small>by ${mod.owner}</small>
-                        <p>${mod.script.slice(0, 60)}...</p>
-                        <button class="download-btn">Download BP</button>
-                    `;
-
-                card.querySelector(".download-btn").onclick = () => {
-                    try {
-                        const safe = (s) => s.replace(/[^\w-]+/g, "_").slice(0, 50) || "mod";
-                        const zip = new JSZip();
-
-                        // Root BP folder
-                        const bpFolder = zip.folder(`${safe(name)}_BP`);
-                        const functionsFolder = bpFolder.folder("functions");
-
-                        // manifest.json
-                        const manifest = {
-                            format_version: 2,
-                            header: {
-                                name: mod.name,
-                                description: "Generated mod from profile",
-                                uuid: crypto.randomUUID(),
-                                version: [1, 0, 0],
-                                min_engine_version: [1, 19, 0]
-                            },
-                            modules: [
-                                {
-                                    type: "data",
-                                    uuid: crypto.randomUUID(),
-                                    version: [1, 0, 0]
-                                }
-                            ]
-                        };
-                        bpFolder.file("manifest.json", JSON.stringify(manifest, null, 4));
-
-                        // loop.mcfunction
-
-                        functionsFolder.file("loop.mcfunction", mod.script || "");
-
-                        // tick.json
-                        functionsFolder.file(
-                            "tick.json",
-                            JSON.stringify({ values: ["loop"] }, null, 4)
-                        );
-
-                        // Generate and download zip
-                        zip.generateAsync({ type: "blob" }).then(content => {
-                            const a = document.createElement("a");
-                            a.href = URL.createObjectURL(content);
-                            a.download = `${safe(name)}_BP.zip`;
-                            a.click();
-                            URL.revokeObjectURL(a.href);
-                        });
-                    } catch (err) {
-                        console.error("Failed to build BP zip:", err);
-                        alert("Failed to create the pack. Check console for details.");
-                    }
-                };
-
-                modsContainer.appendChild(card);
             });
-
-            pageInfo.textContent = `Page ${currentPage}`;
-            prevPageBtn.disabled = currentPage === 1;
-            nextPageBtn.disabled = end >= filteredMods.length;
         }
 
-        searchBtn.addEventListener("click", () => {
-            const term = searchInput.value.toLowerCase();
-            filteredMods = allMods.filter(mod => mod.name.toLowerCase().includes(term));
-            currentPage = 1;
+        filteredMods = [...allMods];
+        renderPage();
+    }
+
+    function renderPage() {
+        modsContainer.innerHTML = "";
+        const start = (currentPage - 1) * modsPerPage;
+        const end = start + modsPerPage;
+        const modsToShow = filteredMods.slice(start, end);
+
+        modsToShow.forEach(mod => {
+            const card = document.createElement("div");
+            card.className = "mod-card";
+
+            // ✅ add badge if owner is admin
+            const ownerDisplay = mod.ownerIsAdmin
+                ? `${mod.owner} <img src="staff.png" alt="Admin" title="Admin" style="width:16px; height:16px; vertical-align:middle; margin-left:4px;">`
+                : mod.owner;
+
+            card.innerHTML = `
+                <h3>${mod.name}</h3>
+                <small>by ${ownerDisplay}</small>
+                <p>${mod.script.slice(0, 60)}...</p>
+                <button class="download-btn">Download BP</button>
+            `;
+
+            card.querySelector(".download-btn").onclick = () => {
+                try {
+                    const safe = (s) => s.replace(/[^\w-]+/g, "_").slice(0, 50) || "mod";
+                    const zip = new JSZip();
+
+                    const bpFolder = zip.folder(`${safe(mod.name)}_BP`);
+                    const functionsFolder = bpFolder.folder("functions");
+
+                    const manifest = {
+                        format_version: 2,
+                        header: {
+                            name: mod.name,
+                            description: "Generated mod from profile",
+                            uuid: crypto.randomUUID(),
+                            version: [1, 0, 0],
+                            min_engine_version: [1, 19, 0]
+                        },
+                        modules: [
+                            {
+                                type: "data",
+                                uuid: crypto.randomUUID(),
+                                version: [1, 0, 0]
+                            }
+                        ]
+                    };
+                    bpFolder.file("manifest.json", JSON.stringify(manifest, null, 4));
+                    functionsFolder.file("loop.mcfunction", mod.script || "");
+                    functionsFolder.file("tick.json", JSON.stringify({ values: ["loop"] }, null, 4));
+
+                    zip.generateAsync({ type: "blob" }).then(content => {
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(content);
+                        a.download = `${safe(mod.name)}_BP.zip`;
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                    });
+                } catch (err) {
+                    console.error("Failed to build BP zip:", err);
+                    alert("Failed to create the pack. Check console for details.");
+                }
+            };
+
+            modsContainer.appendChild(card);
+        });
+
+        pageInfo.textContent = `Page ${currentPage}`;
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = end >= filteredMods.length;
+    }
+
+    searchBtn.addEventListener("click", () => {
+        const term = searchInput.value.toLowerCase();
+        filteredMods = allMods.filter(mod => mod.name.toLowerCase().includes(term));
+        currentPage = 1;
+        renderPage();
+    });
+
+    prevPageBtn.addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage--;
             renderPage();
-        });
+        }
+    });
 
-        prevPageBtn.addEventListener("click", () => {
-            if (currentPage > 1) {
-                currentPage--;
-                renderPage();
-            }
-        });
+    nextPageBtn.addEventListener("click", () => {
+        if ((currentPage * modsPerPage) < filteredMods.length) {
+            currentPage++;
+            renderPage();
+        }
+    });
 
-        nextPageBtn.addEventListener("click", () => {
-            if ((currentPage * modsPerPage) < filteredMods.length) {
-                currentPage++;
-                renderPage();
-            }
-        });
+    fetchMods();
+</script>
 
-        fetchMods();
-    </script>
 
 </body>
 </html>
