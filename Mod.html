@@ -52,6 +52,7 @@
     }
 
     async function loadMods() {
+        try { 
     modsContainer.innerHTML = "";
     mods = [];
     const modsRef = collection(db, "users", username, "MODS");
@@ -110,6 +111,11 @@
 
     modsContainer.appendChild(card);
     });
+
+        } catch (err) {
+            console.log("Mods failed to load:", err);
+            window.location.href = "DownError.html"; // ✅ only triggers if render fails
+        }
     }
 
 
