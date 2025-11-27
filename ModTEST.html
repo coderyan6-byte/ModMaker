@@ -65,14 +65,33 @@
             const userRef = doc(db, "users", username);
             const userSnap = await getDoc(userRef);
 
-            if (!userSnap.exists() || userSnap.data().Testperms !== true) {
-                // User does not have permission
+            if (!userSnap.exists()) {
                 window.location.href = "Mod.html";
-              //  return;
+               // return;
+            }
+
+            const perms = userSnap.data().Testperms;
+
+            if (perms === true) {
+                // SHOW POPUP FOR TESTERS
+                const popup = document.getElementById("testpermsPopup");
+                const closeBtn = document.getElementById("closeTestpermsPopup");
+
+                popup.style.display = "block";
+
+                closeBtn.addEventListener("click", () => {
+                    popup.style.display = "none";
+                });
+
+            } else {
+                // BLOCK NON-TESTERS
+                window.location.href = "Mod.html";
+               // return;
             }
 
             loadMods();
         }
+
 
 
         // ---------- Load mods (unchanged logic) ----------
@@ -1115,6 +1134,41 @@
             <div class="muted selection-info">Selection: Bedrock</div>
         </div>
     </main>
+
+    <div id="testpermsPopup" style="
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1c1c1c;
+    padding: 22px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    display: none;
+    z-index: 99999;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+">
+        <h3 style="margin-top:0;color:white;">Public Test Feature</h3>
+        <p style="font-size:14px;color:#ccc;line-height:1.4;margin-bottom:18px;">
+            You are currently testing an upcoming feature.<br><br>
+            We are doing public testing to see how well it works.<br>
+            Thank you for your understanding!
+        </p>
+        <button id="closeTestpermsPopup" style="
+        padding: 10px 18px;
+        background:#2db34a;
+        border:none;
+        border-radius:6px;
+        color:white;
+        cursor:pointer;
+        font-weight:600;
+    ">
+            Continue
+        </button>
+    </div>
+
 
     <!-- Edition modal (shows on plus click) -->
     <div id="editionModal" class="modal" style="display:none;">
