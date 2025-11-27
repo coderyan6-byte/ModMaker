@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mod Workshop</title>
+    <link rel="icon" type="image/png" href="image2.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Firebase (module) and application script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, setDoc, deleteDoc, doc, updateDoc }
+            from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // --- Firebase config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+            authDomain: "minecraftaddoncreator.firebaseapp.com",
+            projectId: "minecraftaddoncreator",
+            storageBucket: "minecraftaddoncreator.appspot.com",
+            messagingSenderId: "575674413085",
+            appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- DOM references (kept original IDs and variable names) ---
+        const usernameDisplay = document.getElementById("usernameDisplay");
+        const modsContainer = document.getElementById("modsContainer");
+        const createModBtn = document.getElementById("createMod");
+        const modEditor = document.getElementById("modEditor");
+        const modNameInput = document.getElementById("modName");
+        const scriptArea = document.getElementById("scriptArea");
+        const saveModBtn = document.getElementById("saveMod");
+
+        // Additional DOM for block UI
+        const blockToolbox = document.getElementById("blockToolbox");
+        const blockStack = document.getElementById("blockStack");
+        const editionModal = document.getElementById("editionModal");
+        const editionBedrock = document.getElementById("editionBedrock");
+        const editionJava = document.getElementById("editionJava");
+        const editionClose = document.getElementById("editionClose");
+        const editorClose = document.getElementById("editorClose");
+        const blocksToggle = document.getElementById("blocksToggle");
+
+        let username = localStorage.getItem("username");
+        let mods = [];
+        let editingModId = null; // track which mod we’re editing
+
+   //     if (!username) {
+   //         setTimeout(() => window.location.href = "login.html", 100);
+  //      } else {
+   //         usernameDisplay.textContent = username;
+   //         loadMods();
+   //     }
+
+        if (!username) {
+            setTimeout(() => window.location.href = "login.html", 100);
+        } else {
+            usernameDisplay.textContent = username;
+
+            // --- REQUIRE TESTPERMS CHECK ---
+            const userRef = doc(db, "users", username);
+            const userSnap = await getDoc(userRef);
+
+            if (!userSnap.exists() || userSnap.data().Testperms !== true) {
+                // User does not have permission
+                window.location.href = "Mod.html";
+              //  return;
+            }
+
+            loadMods();
+        }
+
+
+        // ---------- Load mods (unchanged logic) ----------
+        async function loadMods() {
+            try {
+                modsContainer.innerHTML = "";
+                mods = [];
+                const modsRef = collection(db, "users", username, "MODS");
+                const snapshot = await getDocs(modsRef);
+
+                snapshot.forEach(docSnap => {
+                    const mod = docSnap.data();
+                    mod.id = docSnap.id;
+                    mods.push(mod);
+
+                    const card = document.createElement("div");
+                    card.className = "mod-card";
+                    card.style.position = "relative";
+
+                    card.innerHTML = `
+                            <img src="Trash.png" class="delete-btn" title="Delete mod"
+                                style="position:absolute; top:8px; right:8px; width:20px; height:20px; cursor:pointer;">
+                            <strong>${escapeHtml(mod.name)}</strong>
+                            <br>
+                            <small class="preview-text">${escapeHtml(mod.script.slice(0, 40))}...</small>
+                            <div class="delete-confirm" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+                                background:#222; padding:10px; border-radius:8px; text-align:center; width:85%; border:1px solid red;">
+                                <p style="margin:0 0 8px; font-size:14px; color:#fff;">
+                                    Are you sure you want to permanently delete this mod?<br>This action cannot be undone.
+                                </p>
+                                <button class="yes-delete" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:4px;">Delete</button>
+                                <button class="no-delete" style="background:gray; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:4px;">Cancel</button>
+                            </div>
+                        `;
+
+                    // Clicking anywhere except delete button opens editor
+                    card.addEventListener("click", (e) => {
+                        if (!e.target.classList.contains("delete-btn") && !e.target.closest(".delete-confirm")) {
+                            openEditor(mod.name, mod.script, mod.id);
+                        }
+                    });
+
+                    const deleteBtn = card.querySelector(".delete-btn");
+                    const confirmBox = card.querySelector(".delete-confirm");
+
+                    deleteBtn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        confirmBox.style.display = "block";
+                    });
+
+                    confirmBox.querySelector(".no-delete").addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        confirmBox.style.display = "none";
+                    });
+
+                    confirmBox.querySelector(".yes-delete").addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        await deleteDoc(doc(db, "users", username, "MODS", mod.id));
+                        loadMods();
+                    });
+
+                    modsContainer.appendChild(card);
+                });
+
+            } catch (err) {
+                console.log("Mods failed to load:", err);
+                window.location.href = "DownError.html"; // ✅ only triggers if render fails
+            }
+        }
+
+        // ---------- Editor open (kept same) ----------
+        function openEditor(name = "", script = "", modId = null) {
+            modNameInput.value = name;
+            scriptArea.value = script;
+            editingModId = modId;
+            // populate block stack from script if possible (best-effort)
+            loadBlocksFromScript(script);
+            modEditor.style.display = "flex";
+        }
+
+        // ---------- Load max mods allowed (unchanged) ----------
+        let maxModsAllowed = 3; // default, will load from Firestore
+
+        async function loadMaxModsAllowed() {
+            const userRef = doc(db, "users", username);
+            const snap = await getDoc(userRef);
+            if (snap.exists()) {
+                maxModsAllowed = snap.data().maxModsAllowed || 3;
+            } else {
+                await setDoc(userRef, { maxModsAllowed: 3 }, { merge: true });
+            }
+        }
+
+        await loadMaxModsAllowed();
+
+        // ---------- Pay modal (unchanged) ----------
+        const payModal = document.createElement("div");
+        payModal.style.position = "fixed";
+        payModal.style.inset = "0";
+        payModal.style.background = "rgba(0,0,0,0.8)";
+        payModal.style.display = "none";
+        payModal.style.alignItems = "center";
+        payModal.style.justifyContent = "center";
+        payModal.style.zIndex = "1000";
+
+        payModal.innerHTML = `
+                <div style="background:#2c2c2c; padding:20px; border-radius:8px; text-align:center; max-width:300px; color:white;">
+                    <h2>Limit Reached</h2>
+                    <p>You've reached your limit of ${maxModsAllowed} mods.</p>
+                    <button id="payCancel" style="margin:10px; background:#d9534f; border:none; padding:10px; color:white; cursor:pointer;">Ok</button>
+                </div>
+            `;
+
+        const payCancelBtn = payModal.querySelector("#payCancel");
+        document.body.appendChild(payModal);
+
+        payCancelBtn.onclick = () => {
+            payModal.style.display = "none";
+        };
+
+        console.log(`
+          _______      _________      _____       ______     _
+         / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
+        / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
+        | |               | |      / /     \\ \\   | |   | |  | |
+        \\ \\______         | |      | |     | |   | |___/ /  | |
+         \\______ \\        | |      | |     | |   |  ____/   | |
+                \\ \\       | |      | |     | |   | |        | |
+         _      | |       | |      \\ \\     / /   | |        |_|
+        \\ \\_____/ /       | |       \\ \\___/ /    | |         _
+         \\_______/        |_|        \\_____/     |_|        |_|
+
+         Keep your account safe! Do not send any information from
+         here to anyone or paste any text here.
+
+         If someone is asking you to copy or paste text here then
+         you're giving someone access to your account.
+            `);
+
+        const banSnap = await getDocs(collection(db, "users", username, "ban"));
+        if (!banSnap.empty) {
+            window.location.href = "AccountBan.html";
+        }
+
+        // ---------- Edition modal behavior ----------
+        // show edition modal when plus clicked. Java option is disabled/greyed out.
+        createModBtn.addEventListener("click", () => {
+            if (mods.length >= maxModsAllowed) {
+                console.log("h")
+                payModal.style.display = "flex";
+                return;
+            } else {
+                // show edition modal as requested (but keep original logic intact as well)
+                editionModal.style.display = "flex";
+                // auto-select bedrock
+                editionBedrock.checked = true;
+                editionBedrock.dispatchEvent(new Event('change'));
+                // fall through to original logic (do not alter it)
+            }
+            openEditor();
+            openEditor();
+        });
+
+        editionClose.addEventListener("click", () => {
+            editionModal.style.display = "none";
+        });
+
+        editionBedrock.addEventListener("change", () => {
+            // nothing required for now; this selection is informational for UI
+            editionModal.dataset.selection = "bedrock";
+            editionModal.querySelector(".selection-info").textContent = "Selected: Bedrock";
+        });
+
+        // ---------- Editor close ----------
+        editorClose.addEventListener("click", () => {
+            modEditor.style.display = "none";
+        });
+
+        // ---------- Save mod (kept original logic intact) ----------
+        saveModBtn.addEventListener("click", async () => {
+            const name = modNameInput.value.trim();
+            const script = scriptArea.value;
+            if (!name) return;
+
+            const modsRef = collection(db, "users", username, "MODS");
+
+            if (editingModId) {
+                // update the existing mod
+                await updateDoc(doc(db, "users", username, "MODS", editingModId), { name, script });
+            } else {
+                // check if name exists already
+                const snapshot = await getDocs(modsRef);
+                let existingId = null;
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.name.toLowerCase() === name.toLowerCase()) {
+                        existingId = docSnap.id;
+                    }
+                });
+
+                if (existingId) {
+                    await updateDoc(doc(db, "users", username, "MODS", existingId), { name, script });
+                } else {
+                    await addDoc(modsRef, { name, script });
+                }
+            }
+
+            await loadMods();
+            modEditor.style.display = "none";
+            editingModId = null;
+
+            // build BP zip (unchanged)
+            const zip = new JSZip();
+            const bpFolder = zip.folder(`${name}_BP`);
+            const functionsFolder = bpFolder.folder("functions");
+
+            const manifest = {
+                format_version: 2,
+                header: {
+                    name: name,
+                    description: "Generated mod from Mod Workshop",
+                    uuid: crypto.randomUUID(),
+                    version: [1, 0, 0],
+                    min_engine_version: [1, 19, 0]
+                },
+                modules: [
+                    {
+                        type: "data",
+                        uuid: crypto.randomUUID(),
+                        version: [1, 0, 0]
+                    }
+                ]
+            };
+
+            functionsFolder.file("loop.mcfunction", script);
+            functionsFolder.file("tick.json", JSON.stringify({ values: ["loop"] }, null, 4));
+            bpFolder.file("manifest.json", JSON.stringify(manifest, null, 4));
+
+            try {
+                const res = await fetch("pack_icon.png");
+                const iconBlob = await res.blob();
+                bpFolder.file("pack_icon.png", iconBlob);
+            } catch { }
+
+            zip.generateAsync({ type: "blob" }).then(content => {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(content);
+                a.download = `${name}_BP.zip`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+        });
+
+        // ---------- Block Editor Implementation (Option A - simple blocks) ----------
+        // Utility: escape html for safe insertion (for mod cards)
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.replace(/[&<>"']/g, function (m) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+            });
+        }
+
+        // Build the toolbox with draggable block templates
+        const BLOCK_TEMPLATES = [
+            { type: "command", label: "Command", placeholder: "e.g. say Hello" },
+            { type: "tp", label: "Teleport (tp @s x y z)", placeholder: "tp @s ~ ~1 ~" },
+            { type: "say", label: "Say (say ...)", placeholder: "say Hello players" },
+            { type: "setblock", label: "Setblock", placeholder: "setblock ~ ~-1 ~ minecraft:stone" },
+            { type: "raw", label: "Raw command", placeholder: "/time set day" }
+        ];
+
+        // Create toolbox items
+        function buildToolbox() {
+            blockToolbox.innerHTML = "";
+            BLOCK_TEMPLATES.forEach(t => {
+                const item = document.createElement("div");
+                item.className = "tool-item";
+                item.draggable = true;
+                item.dataset.type = t.type;
+                item.innerHTML = `<div class="tool-label">${t.label}</div><div class="tool-sub">${t.placeholder}</div>`;
+                item.addEventListener("dragstart", (e) => {
+                    e.dataTransfer.setData("text/plain", t.type);
+                });
+                blockToolbox.appendChild(item);
+            });
+
+            // Add a 'Delete all blocks' action
+            const clearBtn = document.createElement("button");
+            clearBtn.className = "clear-blocks";
+            clearBtn.textContent = "Clear Blocks";
+            clearBtn.addEventListener("click", () => {
+                // keep the start block; remove others
+                Array.from(blockStack.querySelectorAll(".block:not(.start-block)")).forEach(b => b.remove());
+                updateScriptFromBlocks();
+            });
+            blockToolbox.appendChild(clearBtn);
+        }
+
+        buildToolbox();
+
+        // BlockStack: allow drop to append
+        blockStack.addEventListener("dragover", (e) => { e.preventDefault(); blockStack.classList.add("drag-over"); });
+        blockStack.addEventListener("dragleave", () => { blockStack.classList.remove("drag-over"); });
+
+        blockStack.addEventListener("drop", (e) => {
+            e.preventDefault();
+            blockStack.classList.remove("drag-over");
+            const type = e.dataTransfer.getData("text/plain");
+            if (!type) return;
+            // create block instance
+            const block = createBlockInstance(type);
+            blockStack.appendChild(block);
+            updateScriptFromBlocks();
+            // focus the input if block has input
+            const input = block.querySelector("input, textarea");
+            if (input) input.focus();
+        });
+
+        // Ensure there is always a start-block at top (non-removable)
+        function ensureStartBlock() {
+            let start = blockStack.querySelector(".start-block");
+            if (!start) {
+                start = document.createElement("div");
+                start.className = "block start-block";
+                start.innerHTML = `<div class="block-label">/execute</div><div class="block-note">Start (required)</div>`;
+                blockStack.insertBefore(start, blockStack.firstChild);
+            }
+        }
+
+        ensureStartBlock();
+
+        // Create a block DOM node for a given type
+        function createBlockInstance(type) {
+            const template = BLOCK_TEMPLATES.find(t => t.type === type) || BLOCK_TEMPLATES[0];
+            const block = document.createElement("div");
+            block.className = "block";
+            block.draggable = true;
+
+            if (type === "command" || type === "raw") {
+                block.innerHTML = `
+                        <div class="block-label">${template.label}</div>
+                        <input class="block-input" placeholder="${template.placeholder}">
+                        <div class="block-controls">
+                            <button class="btn-move-up" title="Move up">▲</button>
+                            <button class="btn-move-down" title="Move down">▼</button>
+                            <button class="btn-remove" title="Remove">✕</button>
+                        </div>
+                    `;
+            } else if (type === "tp" || type === "say" || type === "setblock") {
+                block.innerHTML = `
+                        <div class="block-label">${template.label}</div>
+                        <input class="block-input" placeholder="${template.placeholder}">
+                        <div class="block-controls">
+                            <button class="btn-move-up" title="Move up">▲</button>
+                            <button class="btn-move-down" title="Move down">▼</button>
+                            <button class="btn-remove" title="Remove">✕</button>
+                        </div>
+                    `;
+                // prefill the input with sensible default placeholder (not required)
+            } else {
+                block.innerHTML = `
+                        <div class="block-label">${template.label}</div>
+                        <input class="block-input" placeholder="${template.placeholder}">
+                        <div class="block-controls">
+                            <button class="btn-move-up" title="Move up">▲</button>
+                            <button class="btn-move-down" title="Move down">▼</button>
+                            <button class="btn-remove" title="Remove">✕</button>
+                        </div>
+                    `;
+            }
+
+            // Event: input changes -> update script
+            const input = block.querySelector(".block-input");
+            if (input) {
+                input.addEventListener("input", () => {
+                    updateScriptFromBlocks();
+                });
+                // When Enter pressed, move focus to next block input
+                input.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nxt = block.nextElementSibling;
+                        if (nxt) {
+                            const ni = nxt.querySelector(".block-input");
+                            if (ni) ni.focus();
+                        }
+                    }
+                });
+            }
+
+            // Move up/down, remove handlers
+            block.querySelector(".btn-move-up").addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                const prev = block.previousElementSibling;
+                if (prev && !prev.classList.contains("start-block")) {
+                    blockStack.insertBefore(block, prev);
+                    updateScriptFromBlocks();
+                } else if (prev && prev.classList.contains("start-block")) {
+                    // cannot move above the start block
+                } else if (prev && !prev.classList.contains("start-block")) {
+                    blockStack.insertBefore(block, prev);
+                    updateScriptFromBlocks();
+                }
+            });
+
+            block.querySelector(".btn-move-down").addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                const next = block.nextElementSibling;
+                if (next) {
+                    blockStack.insertBefore(next, block);
+                    updateScriptFromBlocks();
+                }
+            });
+
+            block.querySelector(".btn-remove").addEventListener("click", (ev) => {
+                ev.stopPropagation();
+                block.remove();
+                updateScriptFromBlocks();
+            });
+
+            // drag reorder support for blocks (simple)
+            block.addEventListener("dragstart", (e) => {
+                block.classList.add("dragging");
+                e.dataTransfer.setData("text/plain", "reorder");
+                // store reference via dataset
+                draggedBlock = block;
+            });
+            block.addEventListener("dragend", () => {
+                block.classList.remove("dragging");
+                draggedBlock = null;
+            });
+
+            // allow dropping between blocks
+            block.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                const dragging = blockStack.querySelector(".dragging");
+                if (!dragging || dragging === block) return;
+                const rect = block.getBoundingClientRect();
+                const mid = rect.top + rect.height / 2;
+                if (e.clientY < mid) {
+                    blockStack.insertBefore(dragging, block);
+                } else {
+                    blockStack.insertBefore(dragging, block.nextElementSibling);
+                }
+            });
+
+            return block;
+        }
+
+        // Keep a reference to dragged block (for reorder)
+        let draggedBlock = null;
+
+        // Generate scriptArea text from current blocks
+        function updateScriptFromBlocks() {
+            ensureStartBlock();
+            const lines = [];
+            // first line always the start block "/execute"
+            lines.push("/execute");
+            // append other blocks (skip start-block)
+            Array.from(blockStack.querySelectorAll(".block:not(.start-block)")).forEach(b => {
+                const inp = b.querySelector(".block-input");
+                let text = inp ? inp.value.trim() : "";
+                if (!text) {
+                    // if blank, use placeholder to assist user (but not required)
+                    text = inp ? inp.placeholder || "" : "";
+                }
+                // If user entered a line starting with '/', do not duplicate
+                if (text.startsWith("/")) text = text.slice(1).trim();
+                // For safety: if empty skip
+                if (text.length === 0) return;
+                lines.push(text);
+            });
+            const out = lines.join("\n");
+            scriptArea.value = out;
+        }
+
+        // Load blocks from existing script (best-effort)
+        function loadBlocksFromScript(script) {
+            // clear existing except keep start
+            Array.from(blockStack.querySelectorAll(".block:not(.start-block)")).forEach(b => b.remove());
+            if (!script) {
+                updateScriptFromBlocks();
+                return;
+            }
+            // split and skip first line if it's /execute
+            const lines = script.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            let startConsumed = false;
+            lines.forEach((line, idx) => {
+                if (idx === 0 && line.toLowerCase().startsWith("/execute")) {
+                    startConsumed = true;
+                    return;
+                }
+            });
+            const remainder = startConsumed ? lines.slice(1) : lines;
+            remainder.forEach(line => {
+                // Create sensible block type guesses
+                let type = "command";
+                if (/^tp\b/i.test(line)) type = "tp";
+                else if (/^say\b/i.test(line)) type = "say";
+                else if (/^setblock\b/i.test(line)) type = "setblock";
+                else if (line.startsWith("/")) type = "raw";
+                const block = createBlockInstance(type);
+                const inp = block.querySelector(".block-input");
+                if (inp) {
+                    inp.value = line.replace(/^\//, ""); // strip leading slash if present
+                }
+                blockStack.appendChild(block);
+            });
+            updateScriptFromBlocks();
+        }
+
+        // Initialize the editor area with a couple helper blocks by default
+        (function seedDefaultBlocks() {
+            // If scriptArea has content we respect it; otherwise create a "say Hello" default
+            if (!scriptArea.value.trim()) {
+                // keep only start-block and add a say block
+                Array.from(blockStack.querySelectorAll(".block:not(.start-block)")).forEach(b => b.remove());
+                const sayBlock = createBlockInstance("say");
+                sayBlock.querySelector(".block-input").value = "say Hello from Mod Workshop";
+                blockStack.appendChild(sayBlock);
+                updateScriptFromBlocks();
+            } else {
+                loadBlocksFromScript(scriptArea.value);
+            }
+        })();
+
+        // When scriptArea is edited directly (user may paste), sync blocks (best-effort)
+        let scriptEditDebounce = null;
+        scriptArea.addEventListener("input", () => {
+            if (scriptEditDebounce) clearTimeout(scriptEditDebounce);
+            scriptEditDebounce = setTimeout(() => {
+                loadBlocksFromScript(scriptArea.value);
+            }, 600);
+        });
+
+        // Toggle block panel visibility
+        blocksToggle.addEventListener("click", () => {
+            document.body.classList.toggle("blocks-hidden");
+        });
+
+        // ensure the scriptArea is always in sync before saving (safety)
+        saveModBtn.addEventListener("click", () => {
+            updateScriptFromBlocks();
+        });
+
+    </script>
+
+    <style>
+        /* --- Global layout & theme --- */
+        :root {
+            --bg: #121212;
+            --panel: #1f1f1f;
+            --muted: #9aa3ad;
+            --accent: #2db34a;
+            --card: #262626;
+            --border: rgba(255,255,255,0.04);
+            --danger: #d9534f;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+            background: linear-gradient(180deg, #0f0f0f 0%, #151515 100%);
+            color: #e6eef3;
+        }
+
+        header.app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: linear-gradient(90deg,#1f1f1f,#2a2a2a);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+            header.app-header h1 {
+                margin: 0;
+                font-size: 18px;
+                letter-spacing: 0.6px;
+                font-weight: 600;
+            }
+
+        header .right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            color: var(--muted);
+        }
+
+        main.app {
+            display: grid;
+            grid-template-columns: 360px 1fr 420px;
+            gap: 18px;
+            padding: 18px;
+            box-sizing: border-box;
+            height: calc(100% - 70px);
+        }
+
+        /* Left column: mods list */
+        .left-panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: auto;
+        }
+
+            .left-panel .toolbar {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+        .mods-grid {
+            display: grid;
+            grid-template-columns: repeat(1,1fr);
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .mod-card {
+            background: linear-gradient(180deg,#222,#1f1f1f);
+            padding: 12px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+        }
+
+            .mod-card strong {
+                font-size: 14px;
+                display: block;
+                color: #fff;
+            }
+
+            .mod-card .preview-text {
+                color: var(--muted);
+                font-size: 12px;
+            }
+
+        /* middle column: workspace */
+        .workspace {
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: auto;
+        }
+
+        .top-work {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .plus-area {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .plus-btn {
+            width: 68px;
+            height: 68px;
+            border-radius: 12px;
+            background: linear-gradient(180deg,#2c7f3a,#267233);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.5);
+            border: none;
+        }
+
+            .plus-btn:hover {
+                transform: translateY(-2px);
+            }
+
+        .workspace-panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 200px;
+        }
+
+        .mod-editor {
+            margin-top: 8px;
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            background: var(--card);
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .editor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        input, textarea {
+            width: 100%;
+            background: #151515;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-family: monospace;
+            resize: none;
+            border-radius: 6px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+            input#modName {
+                font-weight: 600;
+                font-size: 15px;
+                padding: 8px 10px;
+                background: #121212;
+            }
+
+            textarea#scriptArea {
+                min-height: 200px;
+                max-height: 420px;
+                font-size: 13px;
+                line-height: 1.3;
+            }
+
+        button {
+            padding: 10px 12px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+            button:hover {
+                filter: brightness(1.03);
+            }
+
+        /* Right column: block toolbox */
+        .right-panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: auto;
+        }
+
+        .tool-item {
+            background: #151515;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+            cursor: grab;
+        }
+
+            .tool-item:active {
+                cursor: grabbing;
+            }
+
+        .tool-label {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .tool-sub {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .block-stack {
+            background: #0f0f0f;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px dashed rgba(255,255,255,0.03);
+            min-height: 120px;
+            max-height: 520px;
+            overflow: auto;
+        }
+
+        .block {
+            background: linear-gradient(180deg,#1b1b1b,#141414);
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+            .block.start-block {
+                background: linear-gradient(90deg,#2a9df4,#2b8ff3);
+                color: white;
+                font-weight: 700;
+                border-radius: 10px;
+                padding: 12px;
+            }
+
+                .block.start-block .block-note {
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.9);
+                    margin-left: 8px;
+                }
+
+        .block-label {
+            min-width: 120px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .block-input {
+            flex: 1;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.03);
+            padding: 8px;
+            border-radius: 6px;
+            color: #fff;
+        }
+
+        .block-controls {
+            display: flex;
+            gap: 6px;
+            margin-left: 8px;
+        }
+
+        .toolbox-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .clear-blocks {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            background: #2b2b2b;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.03);
+            cursor: pointer;
+        }
+
+        .drag-over {
+            outline: 2px dashed rgba(255,255,255,0.06);
+        }
+
+        /* Small utilities */
+        .muted {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .selection-info {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+        }
+
+            .modal .panel {
+                background: #121212;
+                padding: 16px;
+                border-radius: 10px;
+                width: 320px;
+                text-align: left;
+                border: 1px solid var(--border);
+            }
+
+        .edition-options {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .edition-option {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+            cursor: pointer;
+            background: #0f0f0f;
+        }
+
+            .edition-option.disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
+                filter: grayscale(0.3);
+            }
+
+            .edition-option input {
+                accent-color: var(--accent);
+                transform: scale(1.1);
+            }
+
+        /* Responsive */
+        @media (max-width:1000px) {
+            main.app {
+                grid-template-columns: 1fr;
+                padding: 12px;
+            }
+
+            .right-panel {
+                order: 3;
+            }
+
+            .left-panel {
+                order: 1;
+            }
+
+            .workspace {
+                order: 2;
+            }
+        }
+
+        /* hide blocks panel when toggled */
+        body.blocks-hidden .right-panel {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <h1 id="usernameDisplay">Workshop</h1>
+        <div class="right">
+            <div class="muted">Mod Workshop</div>
+            <div style="font-size:12px;color:var(--muted)">Signed in as <strong id="usernameDisplayMini"></strong></div>
+        </div>
+    </header>
+
+    <main class="app">
+        <!-- Left: mods list -->
+        <div class="left-panel">
+            <div class="toolbar">
+                <div>
+                    <strong>Your Mods</strong>
+                    <div class="muted" style="font-size:12px">Click a card to edit</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button id="blocksToggle" title="Toggle blocks panel">Toggle Blocks</button>
+                </div>
+            </div>
+
+            <div id="modsContainer" class="mods-grid"></div>
+        </div>
+
+        <!-- Middle: main workspace -->
+        <div class="workspace">
+            <div class="top-work">
+                <div class="plus-area">
+                    <div class="plus-btn" id="createMod" title="Create new mod">+</div>
+                    <div style="display:flex;flex-direction:column;">
+                        <div style="font-weight:600">Create Mod</div>
+                        <div class="muted" style="font-size:13px">Click + to open the editor</div>
+                    </div>
+                </div>
+                <div class="muted">Limit: <span id="maxMods">3</span></div>
+            </div>
+
+            <div class="workspace-panel">
+                <div class="muted" style="font-size:13px">Editor</div>
+
+                <div class="mod-editor" id="modEditor">
+                    <div class="editor-header">
+                        <input type="text" id="modName" placeholder="Enter mod name">
+                        <div class="editor-actions">
+                            <button id="saveMod">Save Mod & Download BP</button>
+                            <button id="editorClose" style="background:#333">Close</button>
+                        </div>
+                    </div>
+
+                    <textarea id="scriptArea" placeholder="// Write your mod script here..."></textarea>
+
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <div class="muted">Script generated from blocks (you may also edit text directly):</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right: block toolbox -->
+        <div class="right-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <strong>Block Toolbox</strong>
+                    <div class="muted" style="font-size:12px">Drag blocks into the stack to compose your script</div>
+                </div>
+            </div>
+
+            <div id="blockToolbox" class="toolbox-grid"></div>
+
+            <div style="margin-top:6px;">
+                <div class="muted">Block Stack:</div>
+                <div id="blockStack" class="block-stack" title="Drop blocks here to build your script"></div>
+            </div>
+
+            <div class="muted selection-info">Selection: Bedrock</div>
+        </div>
+    </main>
+
+    <!-- Edition modal (shows on plus click) -->
+    <div id="editionModal" class="modal" style="display:none;">
+        <div class="panel">
+            <h3>Select Edition</h3>
+            <p class="muted">Choose which edition your mod targets.</p>
+
+            <div class="edition-options">
+                <label class="edition-option">
+                    <input type="radio" id="editionBedrock" name="edition" value="bedrock">
+                    <div>
+                        <div style="font-weight:700">Bedrock</div>
+                        <div class="muted" style="font-size:12px">Supported</div>
+                    </div>
+                </label>
+
+                <label class="edition-option disabled" title="Java support disabled">
+                    <input type="radio" id="editionJava" name="edition" value="java" disabled>
+                    <div>
+                        <div style="font-weight:700">Java</div>
+                        <!--Disabled / Grayed out-->
+                        <div class="muted" style="font-size:12px">Not Supported</div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="selection-info" style="margin-top:12px">Selected: Bedrock</div>
+
+            <div style="display:flex;justify-content:flex-end;margin-top:12px">
+                <button id="editionClose">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Small runtime UI wiring for header username display (kept separate to avoid touching main module code)
+        (function () {
+            const username = localStorage.getItem('username') || 'Guest';
+            const u1 = document.getElementById('usernameDisplay');
+            const u2 = document.getElementById('usernameDisplayMini');
+            const maxEl = document.getElementById('maxMods');
+            if (u1) u1.textContent = username;
+            if (u2) u2.textContent = username;
+            // maxMods is set in module code after load; this is just initial placeholder
+            maxEl.textContent = '3';
+        })();
+    </script>
+</body>
+</html>
