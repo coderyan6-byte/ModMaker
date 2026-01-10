@@ -1,113 +1,351 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Login</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sign in / Create account</title>
     <link rel="icon" type="image/png" href="image2.png">
     <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(to right, #667eea, #764ba2);
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        :root {
+            --bg: #f1f3f4;
+            --card: #fff;
+            --muted: #6b7280;
+            --accent: #1a73e8;
+            --radius: 12px;
+            --shadow: 0 8px 28px rgba(20,24,32,.08);
+        }
+
+        html, body {
+            height: 100%;
             margin: 0;
+            font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: #111827
         }
 
-        .container {
-            background: rgba(0, 0, 0, 0.6);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-            width: 320px;
-            animation: fadeIn 1s ease;
+        .stage {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 36px;
         }
 
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-weight: 500;
+        .card {
+            width: 920px;
+            max-width: 96vw;
+            background: var(--card);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 28px;
+            padding: 28px;
+            box-sizing: border-box;
         }
 
-        input {
+        .left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-left: 6px
+        }
+
+        .logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg,#5eead4,#60a5fa)
+        }
+
+        .title {
+            font-size: 40px;
+            margin: 6px 0 0;
+            font-weight: 400
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-top: 8px;
+            font-size: 14px
+        }
+
+        .right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 12px
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #eef3f7;
+            padding: 18px;
+            box-sizing: border-box
+        }
+
+        .small {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 6px
+        }
+
+        input, select {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
+            padding: 11px 12px;
             border-radius: 8px;
-            transition: all 0.3s ease;
+            border: 1px solid #e6e6e6;
             font-size: 14px;
+            box-sizing: border-box
         }
 
-            input:focus {
+            input:focus, select:focus {
                 outline: none;
-                background-color: #eee;
-                color: #333;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 4px rgba(26,115,232,.06)
             }
 
-        button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            background-color: #4fd1c5;
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .link {
+            color: var(--accent);
+            background: none;
             border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            color: #000;
+            padding: 0;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            font-size: 14px
         }
 
-            button:hover {
-                background-color: #38b2ac;
-            }
-
-        #status {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.5s ease;
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600
         }
 
-            #status.show {
-                opacity: 1;
+        .gender-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px
+        }
+
+        .gender-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px;
+            height: 78px;
+            border-radius: 10px;
+            border: 1px solid #e7e7e7;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all .12s ease
+        }
+
+            .gender-btn img {
+                height: 30px;
+                width: auto;
+                display: block
             }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
+        .glabel {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: -4px
+        }
+
+        .gender-btn.selected {
+            border-color: var(--accent);
+            box-shadow: 0 8px 20px rgba(26,115,232,.10);
+            transform: translateY(-2px);
+            background: linear-gradient(180deg,#fff,#fbfeff)
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .footer-right {
+            display: flex;
+            gap: 14px;
+            align-items: center
+        }
+
+            .footer-right a {
+                color: var(--muted);
+                text-decoration: none
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
+                .footer-right a.terms {
+                    color: var(--accent);
+                    font-weight: 600
+                }
+
+        @media (max-width:980px) {
+            .card {
+                grid-template-columns: 1fr;
+                padding: 20px
+            }
+
+            .left {
+                order: 2
+            }
+
+            .right {
+                order: 1
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Create Account</h2>
-        <input type="text" id="newUsername" placeholder="Username">
-        <input type="password" id="newPassword" placeholder="Password">
-        <button onclick="createAccount()">Create Account</button>
+    <div class="stage">
+        <div class="card" role="region" aria-label="Authentication">
+            <!-- LEFT (neutral welcome) -->
+            <div class="left" aria-hidden="true">
+                <div class="title">Welcome</div>
+            </div>
 
-        <h2>Login</h2>
-        <input type="text" id="loginUsername" placeholder="Username">
-        <input type="password" id="loginPassword" placeholder="Password">
-        <button onclick="login()">Login</button>
+            <!-- RIGHT: stacked panels -->
+            <div class="right">
 
-        <p id="status"></p>
+                <!-- LOGIN Step 1: USERNAME -->
+                <div id="loginUsernamePanel" class="panel" aria-live="polite">
+                    <div style="font-weight:600">Sign in</div>
+                    <div class="small">Enter your username</div>
+                    <div style="margin-top:12px">
+                        <input id="loginUsername" type="text" placeholder="Username" autocomplete="username">
+                    </div>
+                    <div style="margin-top:12px" class="row">
+                        <button class="link" id="openSignupFromLogin">Create account</button>
+                        <button class="btn" id="loginUsernameNext">Next</button>
+                    </div>
+                </div>
+
+                <!-- LOGIN Step 2: PASSWORD -->
+                <div id="loginPasswordPanel" class="panel" style="display:none;" aria-hidden="true">
+                    <div style="font-weight:600">Enter password</div>
+                    <div class="small" style="margin-top:6px">for <strong id="loginPreviewUser">[username]</strong></div>
+                    <div style="margin-top:12px">
+                        <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
+                    </div>
+                    <div style="margin-top:12px" class="row">
+                        <button class="link" id="backToLoginUsername">Back</button>
+                        <div style="display:flex;gap:10px;align-items:center">
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px">
+                                <input id="showLoginPass" type="checkbox"><span style="font-size:13px">Show password</span>
+                            </label>
+                            <button class="btn" id="loginSubmit">Sign in</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIGNUP Step 1: USERNAME -->
+                <div id="signupUsernamePanel" class="panel" style="display:none;" aria-hidden="true">
+                    <div style="font-weight:600">Create account</div>
+                    <div class="small">Pick a username</div>
+                    <div style="margin-top:12px">
+                        <input id="newUsername" type="text" placeholder="Username" autocomplete="username">
+                    </div>
+                    <div style="margin-top:12px" class="row">
+                        <button class="link" id="backToLoginFromSignup">Sign in instead</button>
+                        <button class="btn" id="signupUsernameNext">Next</button>
+                    </div>
+                </div>
+
+                <!-- SIGNUP Step 2: PASSWORD -->
+                <div id="signupPasswordPanel" class="panel" style="display:none;" aria-hidden="true">
+                    <div style="font-weight:600">Create account</div>
+                    <div class="small">Set a password</div>
+                    <div style="margin-top:12px">
+                        <input id="newPassword" type="password" placeholder="Password" autocomplete="new-password">
+                    </div>
+                    <div style="margin-top:12px" class="row">
+                        <button class="link" id="backToSignupUsername">Back</button>
+                        <button class="btn" id="signupPasswordNext">Next</button>
+                    </div>
+                </div>
+
+                <!-- SIGNUP Step 3: DETAILS (COUNTRY/STATE/BIRTHDAY/GENDER) -->
+                <div id="signupDetailsPanel" class="panel" style="display:none;" aria-hidden="true">
+                    <div style="font-weight:600">A few more details</div>
+                    <div class="small" style="margin-top:6px">Choose gender and region, and enter your birthday</div>
+
+                    <div style="margin-top:12px">
+                        <select id="country" aria-label="Country">
+                            <option value="">Country</option>
+                            <option>United States</option>
+                            <option>Canada</option>
+                            <option>United Kingdom</option>
+                            <option>Australia</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:12px" id="stateWrapper" hidden>
+                        <input id="state" type="text" placeholder="State / Region">
+                    </div>
+
+                    <div style="margin-top:12px;display:flex;gap:8px">
+                        <select id="birthMonth" aria-label="Birth month"></select>
+                        <select id="birthDay" aria-label="Birth day"></select>
+                        <select id="birthYear" aria-label="Birth year"></select>
+                    </div>
+
+                    <div style="margin-top:12px;color:var(--muted);font-size:13px">Gender</div>
+                    <div class="gender-row" role="radiogroup" aria-label="Gender">
+                        <button id="g-boy" class="gender-btn" role="radio" aria-checked="false" type="button">
+                            <img src="Boy.png" alt="" aria-hidden="true">
+                            <div class="glabel">Boy</div>
+                        </button>
+                        <button id="g-girl" class="gender-btn" role="radio" aria-checked="false" type="button">
+                            <img src="Girl.png" alt="" aria-hidden="true">
+                            <div class="glabel">Girl</div>
+                        </button>
+                    </div>
+
+                    <div style="margin-top:12px" class="row">
+                        <button class="link" id="backToSignupPassword">Back</button>
+                        <button class="btn" id="createAccountBtn">Create account</button>
+                    </div>
+                </div>
+
+                <!-- status and footer (Help removed; Terms still points to TOS.html) -->
+                <div id="status" style="margin-top:8px;color:var(--muted);min-height:18px"></div>
+
+                <div class="footer" style="margin-top:8px">
+                    <div style="font-size:13px;color:var(--muted)">English (United States)</div>
+                    <div class="footer-right">
+                        <a href="TOS.html" class="terms" id="termsLink">Terms</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
 
+        // FIREBASE (unchanged)
         const firebaseConfig = {
             apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
             authDomain: "minecraftaddoncreator.firebaseapp.com",
@@ -116,111 +354,298 @@
             messagingSenderId: "575674413085",
             appId: "1:575674413085:web:7b52ae5d59c418002816f4"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const statusEl = document.getElementById("status");
+        // panels & controls
+        const loginUsernamePanel = document.getElementById('loginUsernamePanel');
+        const loginPasswordPanel = document.getElementById('loginPasswordPanel');
+        const signupUsernamePanel = document.getElementById('signupUsernamePanel');
+        const signupPasswordPanel = document.getElementById('signupPasswordPanel');
+        const signupDetailsPanel = document.getElementById('signupDetailsPanel');
 
-        function showStatus(message, isError = false) {
-            statusEl.textContent = message;
-            statusEl.style.color = isError ? "#f87171" : "#a7f3d0";
-            statusEl.classList.add("show");
-            setTimeout(() => statusEl.classList.remove("show"), 3000);
+        const loginUsernameInput = document.getElementById('loginUsername');
+        const loginUsernameNextBtn = document.getElementById('loginUsernameNext');
+        const loginPasswordInput = document.getElementById('loginPassword');
+        const loginSubmitBtn = document.getElementById('loginSubmit');
+        const loginPreviewUser = document.getElementById('loginPreviewUser');
+        const backToLoginUsernameBtn = document.getElementById('backToLoginUsername');
+        const openSignupFromLogin = document.getElementById('openSignupFromLogin');
+        const showLoginPass = document.getElementById('showLoginPass');
+
+        const newUsernameInput = document.getElementById('newUsername');
+        const signupUsernameNext = document.getElementById('signupUsernameNext');
+        const backToLoginFromSignup = document.getElementById('backToLoginFromSignup');
+        const newPasswordInput = document.getElementById('newPassword');
+        const signupPasswordNext = document.getElementById('signupPasswordNext');
+        const backToSignupUsername = document.getElementById('backToSignupUsername');
+        const backToSignupPassword = document.getElementById('backToSignupPassword');
+        const createAccountBtn = document.getElementById('createAccountBtn');
+        const countryInput = document.getElementById('country');
+        const stateWrapper = document.getElementById('stateWrapper');
+        const stateInput = document.getElementById('state');
+        const gBoy = document.getElementById('g-boy');
+        const gGirl = document.getElementById('g-girl');
+
+        const birthMonth = document.getElementById('birthMonth');
+        const birthDay = document.getElementById('birthDay');
+        const birthYear = document.getElementById('birthYear');
+
+        const statusEl = document.getElementById('status');
+
+        let loginUsername = '';
+        window._selectedGender = '';
+
+        function showStatus(msg, isError = false) {
+            statusEl.textContent = msg;
+            statusEl.style.color = isError ? '#d93025' : '#188038';
         }
 
-        function generateId() {
-            return 'xxxxxxxxyxxxxyxxxyxxx'.replace(/[xy]/g, c => {
-                const r = Math.random() * 16 | 0;
-                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-            });
-        }
-
-        console.log(`
-      _______      _________      _____       ______     _
-     / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-    / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-    | |               | |      / /     \\ \\   | |   | |  | |
-    \\ \\______         | |      | |     | |   | |___/ /  | |
-     \\______ \\        | |      | |     | |   |  ____/   | |
-            \\ \\       | |      | |     | |   | |        | |
-     _      | |       | |      \\ \\     / /   | |        |_|
-    \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-     \\_______/        |_|        \\_____/     |_|        |_|
-
-     Keep your account safe! Do not send any information from
-     here to anyone or paste any text here.
-
-     If someone is asking you to copy or paste text here then
-     you're giving someone access to your account.
-`);
-
-
-        window.createAccount = async function () {
-            const username = document.getElementById("newUsername").value.trim();
-            const password = document.getElementById("newPassword").value.trim();
-
-            if (!username || !password) {
-                showStatus("Please enter both fields.", true);
+        // INERT helper (same fallback approach)
+        function setInert(el, inert) {
+            if (!el) return;
+            if ('inert' in HTMLElement.prototype) {
+                el.inert = inert;
+                el.setAttribute('aria-hidden', inert ? 'true' : 'false');
+                if (inert && document.activeElement && el.contains(document.activeElement)) document.activeElement.blur();
                 return;
             }
-
-            // Blocked usernames list
-            const blockedUsernames = ["admin", "moderator", "root", "owner", "system", "fuck", "bitch", "dick", "penis", "sex","date", "white", "black","diddy","black","suck","itler","virus","hacker","tits","boobs","ass","piss","nasi","nazi","Death","Sucide","kill","star","lmao","dam","kkk","shit"];
-
-            // Check if username contains any blocked word
-            if (blockedUsernames.some(word => username.toLowerCase().includes(word))) {
-                showStatus("That username is not allowed.", true);
-                return;
-            }
-
-    if (!/^[A-Za-z0-9_]+$/.test(username)) {
-        showStatus("Username can only contain letters, numbers, and underscores (_).", true);
-        return;
-    }
-
-            const userRef = doc(db, "users", username);
-            const docSnap = await getDoc(userRef);
-
-            if (docSnap.exists()) {
-                showStatus("Username already taken.", true);
-            } else {
-                const joinDate = new Date().toISOString();
-                const userId = generateId();
-                await setDoc(userRef, {
-                    password,
-                    joinDate,
-                    userId,
-                    description: ""
+            const focusableSelector = 'a[href], button, textarea, input, select, [tabindex]';
+            const focusables = Array.from(el.querySelectorAll(focusableSelector));
+            if (inert) {
+                focusables.forEach(node => {
+                    if (node.hasAttribute('data-prev-tabindex')) return;
+                    if (node.hasAttribute('tabindex')) node.setAttribute('data-prev-tabindex', node.getAttribute('tabindex'));
+                    else node.setAttribute('data-prev-tabindex', 'none');
+                    node.setAttribute('tabindex', '-1');
                 });
-                showStatus(`Account created!`);
+                if (document.activeElement && el.contains(document.activeElement)) document.activeElement.blur();
+            } else {
+                focusables.forEach(node => {
+                    const prev = node.getAttribute('data-prev-tabindex');
+                    if (prev === null) return;
+                    if (prev === 'none') node.removeAttribute('tabindex'); else node.setAttribute('tabindex', prev);
+                    node.removeAttribute('data-prev-tabindex');
+                });
             }
-        };
+            el.setAttribute('aria-hidden', inert ? 'true' : 'false');
+        }
 
+        // show/hide helper for panels
+        function showPanel(panelName) {
+            [loginUsernamePanel, loginPasswordPanel, signupUsernamePanel, signupPasswordPanel, signupDetailsPanel].forEach(p => {
+                p.style.display = 'none'; p.setAttribute('aria-hidden', 'true'); setInert(p, true);
+            });
+            switch (panelName) {
+                case 'loginUser':
+                    loginUsernamePanel.style.display = ''; loginUsernamePanel.removeAttribute('aria-hidden'); setInert(loginUsernamePanel, false); loginUsernameInput.focus(); break;
+                case 'loginPass':
+                    loginPasswordPanel.style.display = ''; loginPasswordPanel.removeAttribute('aria-hidden'); setInert(loginPasswordPanel, false); loginPasswordInput.focus(); break;
+                case 'signupUser':
+                    signupUsernamePanel.style.display = ''; signupUsernamePanel.removeAttribute('aria-hidden'); setInert(signupUsernamePanel, false); newUsernameInput.focus(); break;
+                case 'signupPass':
+                    signupPasswordPanel.style.display = ''; signupPasswordPanel.removeAttribute('aria-hidden'); setInert(signupPasswordPanel, false); newPasswordInput.focus(); break;
+                case 'signupDetails':
+                    signupDetailsPanel.style.display = ''; signupDetailsPanel.removeAttribute('aria-hidden'); setInert(signupDetailsPanel, false); countryInput.focus(); break;
+            }
+            showStatus('');
+        }
 
-        window.login = async function () {
-            const username = document.getElementById("loginUsername").value.trim();
-            const password = document.getElementById("loginPassword").value.trim();
+        // check whether a username exists in Firestore
+        async function usernameExists(username) {
+            if (!username) return false;
+            try {
+                const ref = doc(db, "users", username);
+                const snap = await getDoc(ref);
+                return snap.exists();
+            } catch (e) {
+                console.error("usernameExists error", e);
+                return false;
+            }
+        }
+
+        // init birth selects
+        (function initBirthdaySelectors() {
+            const months = ["Month", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            birthMonth.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+            function populateDays(m, y) {
+                const month = Number(m);
+                let days = 31;
+                if ([4, 6, 9, 11].includes(month)) days = 30;
+                else if (month === 2) {
+                    const yy = Number(y) || new Date().getFullYear();
+                    days = ((yy % 4 === 0 && yy % 100 !== 0) || yy % 400 === 0) ? 29 : 28;
+                }
+                const opts = ['<option value="">Day</option>'];
+                for (let d = 1; d <= days; d++) opts.push(`<option value="${d}">${d}</option>`);
+                birthDay.innerHTML = opts.join('');
+            }
+            const currentYear = new Date().getFullYear();
+            const years = ['<option value="">Year</option>'];
+            for (let y = currentYear; y >= currentYear - 100; y--) years.push(`<option value="${y}">${y}</option>`);
+            birthYear.innerHTML = years.join('');
+            birthMonth.addEventListener('change', () => populateDays(birthMonth.value, birthYear.value));
+            birthYear.addEventListener('change', () => populateDays(birthMonth.value, birthYear.value));
+            populateDays(1, currentYear);
+        })();
+
+        // country -> show state only if United States
+        countryInput.addEventListener('change', () => {
+            if (countryInput.value === 'United States') {
+                stateWrapper.hidden = false;
+                stateInput.removeAttribute('disabled');
+                stateInput.focus();
+            } else {
+                stateWrapper.hidden = true;
+                stateInput.value = '';
+                stateInput.setAttribute('disabled', '');
+            }
+        });
+
+        // wire buttons & behaviors
+
+        // LOGIN sequence: check username exists before moving to password step
+        loginUsernameNextBtn.addEventListener('click', async () => {
+            const u = loginUsernameInput.value.trim();
+            if (!u) { showStatus('Enter your username first.', true); return; }
+            showStatus('Checking username...');
+            const exists = await usernameExists(u);
+            if (!exists) { showStatus('User not found.', true); return; }
+            loginUsername = u;
+            loginPreviewUser.textContent = loginUsername;
+            showPanel('loginPass');
+        });
+
+        backToLoginUsernameBtn.addEventListener('click', () => showPanel('loginUser'));
+        openSignupFromLogin.addEventListener('click', () => showPanel('signupUser'));
+
+        showLoginPass.addEventListener('change', (e) => loginPasswordInput.type = e.target.checked ? 'text' : 'password');
+
+        // login submit (unchanged)
+        async function doLogin() {
+            const password = loginPasswordInput.value.trim();
+            if (!loginUsername) { showStatus('No username provided.', true); return; }
+            if (!password) { showStatus('Enter your password.', true); return; }
+            const userRef = doc(db, "users", loginUsername);
+            const docSnap = await getDoc(userRef);
+            if (!docSnap.exists()) { showStatus('User not found.', true); return; }
+            const data = docSnap.data();
+            if (data.password === password) {
+                localStorage.setItem("userId", data.userId);
+                localStorage.setItem("username", loginUsername);
+                window.location.href = "lobby.html";
+            } else {
+                showStatus('Incorrect password.', true);
+            }
+        }
+        loginSubmitBtn.addEventListener('click', doLogin);
+        loginPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+        // SIGNUP: step1 username -> check availability before proceeding
+        signupUsernameNext.addEventListener('click', async () => {
+            const u = newUsernameInput.value.trim();
+            if (!u) { showStatus('Enter a username.', true); return; }
+            showStatus('Checking availability...');
+            const exists = await usernameExists(u);
+            if (exists) { showStatus('Username already taken.', true); return; }
+            showPanel('signupPass');
+        });
+        backToLoginFromSignup.addEventListener('click', () => showPanel('loginUser'));
+
+        // step2 password
+        signupPasswordNext.addEventListener('click', () => {
+            const p = newPasswordInput.value.trim();
+            if (!p) { showStatus('Enter a password.', true); return; }
+            showPanel('signupDetails');
+        });
+        backToSignupUsername.addEventListener('click', () => showPanel('signupUser'));
+
+        // gender selection
+        function selectGender(g) {
+            if (g === 'boy') {
+                gBoy.classList.add('selected'); gBoy.setAttribute('aria-checked', 'true');
+                gGirl.classList.remove('selected'); gGirl.setAttribute('aria-checked', 'false');
+                window._selectedGender = 'boy';
+            } else {
+                gGirl.classList.add('selected'); gGirl.setAttribute('aria-checked', 'true');
+                gBoy.classList.remove('selected'); gBoy.setAttribute('aria-checked', 'false');
+                window._selectedGender = 'girl';
+            }
+        }
+        gBoy.addEventListener('click', () => selectGender('boy'));
+        gGirl.addEventListener('click', () => selectGender('girl'));
+        [gBoy, gGirl].forEach(btn => btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); } }));
+        backToSignupPassword.addEventListener('click', () => showPanel('signupPass'));
+
+        // final create account -> validate, blocked-list, setDoc (saves birthday + gender + country/state)
+        createAccountBtn.addEventListener('click', async () => {
+            const username = newUsernameInput.value.trim();
+            const password = newPasswordInput.value.trim();
+            const country = countryInput.value;
+            const state = stateInput.value || '';
+            const gender = window._selectedGender || '';
+            const birthM = birthMonth.value;
+            const birthD = birthDay.value;
+            const birthY = birthYear.value;
+
+            if (!username || !password) { showStatus('Please enter both username and password.', true); return; }
+            if (!birthM || !birthD || !birthY) { showStatus('Please enter your full birthday.', true); return; }
+
+            const blockedUsernames = ["admin", "moderator", "root", "owner", "system", "fuck", "bitch", "dick", "penis", "sex", "date", "white", "black", "diddy", "black", "suck", "itler", "virus", "hacker", "tits", "boobs", "ass", "piss", "nasi", "nazi", "Death", "Sucide", "kill", "star", "lmao", "dam", "kkk", " "];
+            if (blockedUsernames.some(word => username.toLowerCase().includes(word))) { showStatus('That username is not allowed.', true); return; }
+            if (!/^[A-Za-z0-9_]+$/.test(username)) { showStatus('Username can only contain letters, numbers, and underscores (_).', true); return; }
+
+            // Double-check username still not taken
+            showStatus('Creating account...');
+            const exists = await usernameExists(username);
+            if (exists) { showStatus('Username already taken.', true); return; }
 
             const userRef = doc(db, "users", username);
-            const docSnap = await getDoc(userRef);
+            const joinDate = new Date().toISOString();
+            const userId = (function () { return 'xxxxxxxxyxxxxyxxxyxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16) }) })();
 
-            if (!docSnap.exists()) {
-                showStatus("User not found.", true);
-            } else {
-                const data = docSnap.data();
-                if (data.password === password) {
-                    localStorage.setItem("userId", data.userId);
-                    localStorage.setItem("username", username);
-                    // window.location.href = "profile.html";
+            await setDoc(userRef, {
+                password,
+                joinDate,
+                userId,
+                description: "",
+                gender,
+                country: country || "",
+                state: country === 'United States' ? state || "" : "",
+                birthMonth: birthM,
+                birthDay: birthD,
+                birthYear: birthY
+            });
+
+            // NEW: automatically log user in and redirect (as requested)
+            try {
+                localStorage.setItem("userId", userId);
+                localStorage.setItem("username", username);
+                showStatus('Account created! Signing you in...');
+                // short delay helps show message briefly; remove if you want instant redirect
+                setTimeout(() => {
                     window.location.href = "lobby.html";
-                } else {
-                    showStatus("Incorrect password.", true);
-                }
+                }, 350);
+            } catch (e) {
+                console.error(e);
+                showStatus('Account created, but something went wrong when logging in. Please sign in manually.', true);
             }
-        };
+        });
+
+        // keyboard helpers
+        loginUsernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginUsernameNextBtn.click(); });
+        newUsernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signupUsernameNext.click(); });
+        newPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signupPasswordNext.click(); });
+        loginPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+        // initial inert states & initial focus
+        setInert(loginPasswordPanel, true);
+        setInert(signupUsernamePanel, true);
+        setInert(signupPasswordPanel, true);
+        setInert(signupDetailsPanel, true);
+        showPanel('loginUser');
+        loginUsernameInput.focus();
+
     </script>
 </body>
 </html>
-
-
