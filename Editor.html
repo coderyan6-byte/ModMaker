@@ -1,0 +1,640 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Editor</title>
+
+    <!-- Blockly -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #0f0f10;
+            --panel: #161616;
+            --muted: #9aa0a6;
+            --accent: #1db954;
+            --text: #e6eef3;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, Arial, sans-serif;
+        }
+
+        header {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            background: var(--panel);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+            header .left {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+            }
+
+            header h1 {
+                font-size: 16px;
+                margin: 0;
+            }
+
+            header .meta {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            header .actions {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+        .btn {
+            background: #4CAF50;
+            border: none;
+            padding: 8px 12px;
+            color: #042004;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+            .btn.ghost {
+                background: transparent;
+                color: var(--muted);
+                border: 1px solid rgba(255,255,255,0.03);
+            }
+
+        #container {
+            display: flex;
+            height: calc(100% - 56px);
+        }
+
+        #blocklyDiv {
+            flex: 1;
+            height: 100%;
+            width: 100%;
+        }
+
+        #loadingOverlay, #errorOverlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.55));
+        }
+
+            #loadingOverlay .box, #errorOverlay .box {
+                background: var(--panel);
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                min-width: 280px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.04);
+            border-left-color: var(--accent);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="left">
+            <h1 id="title">Editor</h1>
+            <div class="meta" id="meta">loading...</div>
+        </div>
+        <div class="actions">
+            <button id="saveBtn" class="btn">SAVE / Publish</button>
+            <button id="backBtn" class="btn ghost">Back</button>
+        </div>
+    </header>
+
+    <div id="container">
+        <div id="blocklyDiv"></div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" role="status" aria-live="polite">
+        <div class="box">
+            <div class="spinner" aria-hidden="true"></div>
+            <div style="font-weight:700; margin-bottom:6px;">Loading...</div>
+            <div class="muted" style="font-size:13px;">Preparing editor</div>
+        </div>
+    </div>
+
+    <!-- Error overlay -->
+    <div id="errorOverlay" style="display:none;" role="alert" aria-live="assertive">
+        <div class="box">
+            <div style="font-weight:700; margin-bottom:10px;">Sorry, an error as occurred</div>
+            <div class="muted" style="margin-bottom:14px;">An unexpected error happened while loading the editor.</div>
+            <div style="display:flex; gap:8px; justify-content:center;">
+                <button id="retryBtn" class="btn">Retry</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (async function main() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const errorOverlay = document.getElementById('errorOverlay');
+            const retryBtn = document.getElementById('retryBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const backBtn = document.getElementById('backBtn');
+            const titleEl = document.getElementById('title');
+            const metaEl = document.getElementById('meta');
+
+            function showLoading() { loadingOverlay.style.display = 'flex'; errorOverlay.style.display = 'none'; }
+            function hideLoading() { loadingOverlay.style.display = 'none'; }
+            function showError() { errorOverlay.style.display = 'flex'; loadingOverlay.style.display = 'none'; }
+
+            retryBtn.addEventListener('click', () => location.reload());
+            backBtn.addEventListener('click', () => history.back());
+
+            try {
+                showLoading();
+                // small yield so overlay renders
+                await new Promise(r => requestAnimationFrame(r));
+
+                // Parse URL params defensively
+                const params = new URLSearchParams(location.search);
+                const modName = params.get('name') || 'Untitled';
+                const scriptParamRaw = params.get('script') || '';
+                const modId = params.get('id') || '';
+                const version = params.get('version') || '';
+
+                titleEl.textContent = `Editor — ${modName}`;
+                metaEl.textContent = (version ? `version: ${version}` : '') + (modId ? ` · id: ${modId}` : '');
+
+                // Dynamically import firebase modules (keeps top-level script safe)
+                let firebaseApp, getFirestoreFn, collectionFn, addDocFn, getDocsFn, getDocFn, setDocFn, deleteDocFn, docFn, updateDocFn;
+                try {
+                    const firebase = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js");
+                    const firestore = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js");
+                    firebaseApp = firebase.initializeApp;
+                    // we only need firestore functions here later; to avoid naming confusion we'll keep firestore import usage inside save handler.
+                    getFirestoreFn = firestore.getFirestore;
+                    collectionFn = firestore.collection;
+                    addDocFn = firestore.addDoc;
+                    getDocsFn = firestore.getDocs;
+                    getDocFn = firestore.getDoc;
+                    setDocFn = firestore.setDoc;
+                    deleteDocFn = firestore.deleteDoc;
+                    docFn = firestore.doc;
+                    updateDocFn = firestore.updateDoc;
+                } catch (e) {
+                    // If firebase import fails, we'll still allow editing but Save will fail gracefully.
+                    console.warn('Firebase modules failed to import (save will be disabled):', e);
+                }
+
+                // Initialize Blockly workspace
+                const toolboxXml = `
+<xml id="toolbox" style="display: none">
+      <category name="Events" colour="#FFAB19">
+        <block type="mc_on_load"></block>
+        <block type="mc_on_tick"></block>
+      </category>
+      <category name="Logic" colour="#FFAB19">
+        <block type="controls_if"></block>
+        <block type="controls_repeat_ext"></block>
+        <block type="controls_whileUntil"></block>
+      </category>
+      <category name="Minecraft" colour="#5b7cfa">
+        <block type="mc_say"></block>
+        <block type="mc_tellraw"></block>
+        <block type="mc_give"></block>
+        <block type="mc_setblock"></block>
+        <block type="mc_tp"></block>
+        <block type="mc_effect"></block>
+        <block type="mc_playsound"></block>
+        <block type="mc_weather"></block>
+        <block type="mc_time"></block>
+        <block type="mc_summon"></block>
+        <block type="mc_title"></block>
+        <block type="mc_execute"></block>
+      </category>
+</xml>`;
+
+                const workspace = Blockly.inject('blocklyDiv', {
+                    toolbox: Blockly.utils.xml.textToDom(toolboxXml),
+                    grid: { spacing: 25, length: 3, colour: '#2a2a2a', snap: true },
+                    trashcan: true,
+                    zoom: { controls: true, wheel: true }
+                });
+
+
+                // Define blocks and generators inside this scope (no stray returns)
+                // Event hats
+                Blockly.Blocks['mc_on_load'] = {
+                    init: function () {
+                        this.appendDummyInput().appendField("On Load");
+                        this.setColour(20);
+                        this.setNextStatement(true);
+                        this.setTooltip("Run when the behavior pack is loaded");
+                    }
+                };
+                Blockly.Blocks['mc_on_tick'] = {
+                    init: function () {
+                        this.appendDummyInput().appendField("On Tick");
+                        this.setColour(20);
+                        this.setNextStatement(true);
+                        this.setTooltip("Run every game tick (fast)");
+                    }
+                };
+
+                // Simple action blocks (text fields / dropdowns)
+                Blockly.Blocks['mc_say'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("say")
+                            .appendField(new Blockly.FieldTextInput("Hello"), "TEXT");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(230);
+                    }
+                };
+                Blockly.Blocks['mc_tellraw'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("tellraw")
+                            .appendField(new Blockly.FieldTextInput('{"rawtext":[{"text":"Welcome!"}]}'), "TEXT");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(210);
+                    }
+                };
+                Blockly.Blocks['mc_give'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("give")
+                            .appendField(new Blockly.FieldTextInput("diamond"), "ITEM")
+                            .appendField(new Blockly.FieldNumber(1, 1, 9999), "COUNT");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(120);
+                    }
+                };
+                Blockly.Blocks['mc_setblock'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("setblock")
+                            .appendField(new Blockly.FieldTextInput("stone"), "BLOCK");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(65);
+                    }
+                };
+                Blockly.Blocks['mc_tp'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("tp player")
+                            .appendField(new Blockly.FieldTextInput("~ ~1 ~"), "POS");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(200);
+                    }
+                };
+                Blockly.Blocks['mc_effect'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("effect")
+                            .appendField(new Blockly.FieldTextInput("levitation"), "EFFECT")
+                            .appendField(new Blockly.FieldNumber(3, 0), "DURATION")
+                            .appendField(new Blockly.FieldNumber(1, 0), "AMP");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(0);
+                    }
+                };
+                Blockly.Blocks['mc_playsound'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("playsound")
+                            .appendField(new Blockly.FieldTextInput("minecraft:entity.player.levelup"), "SOUND")
+                            .appendField(new Blockly.FieldTextInput("@p"), "TARGET");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(140);
+                    }
+                };
+                Blockly.Blocks['mc_weather'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("weather")
+                            .appendField(new Blockly.FieldDropdown([["clear", "clear"], ["rain", "rain"], ["thunder", "thunder"]]), "TYPE");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(180);
+                    }
+                };
+                Blockly.Blocks['mc_time'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("time")
+                            .appendField(new Blockly.FieldDropdown([["day", "day"], ["night", "night"]]), "TYPE");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(260);
+                    }
+                };
+                Blockly.Blocks['mc_summon'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("summon")
+                            .appendField(new Blockly.FieldTextInput("minecraft:zombie ~ ~ ~"), "ENTITY");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(300);
+                    }
+                };
+                Blockly.Blocks['mc_title'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("title")
+                            .appendField(new Blockly.FieldTextInput('Hello'), "TEXT");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(120);
+                    }
+                };
+                Blockly.Blocks['mc_execute'] = {
+                    init: function () {
+                        this.appendDummyInput()
+                            .appendField("execute (raw)")
+                            .appendField(new Blockly.FieldTextInput("say hello"), "CMD");
+                        this.setPreviousStatement(true);
+                        this.setNextStatement(true);
+                        this.setColour(10);
+                    }
+                };
+
+                // JavaScript code generators (produce mcfunction lines)
+                const Gen = Blockly.JavaScript;
+
+                Gen['mc_on_load'] = function (block) {
+                    // generate nested statements (no surrounding wrapper)
+                    return Gen.statementToCode(block, 'STACK') || '';
+                };
+                Gen['mc_on_tick'] = function (block) {
+                    return Gen.statementToCode(block, 'STACK') || '';
+                };
+                Gen['mc_say'] = function (block) {
+                    const txt = block.getFieldValue('TEXT') || '';
+                    return 'say ' + txt + '\\n';
+                };
+                Gen['mc_tellraw'] = function (block) {
+                    const txt = block.getFieldValue('TEXT') || '';
+                    return 'tellraw @a ' + txt + '\\n';
+                };
+                Gen['mc_give'] = function (block) {
+                    const item = block.getFieldValue('ITEM') || 'diamond';
+                    const count = block.getFieldValue('COUNT') || '1';
+                    return `give @p ${item} ${count}\\n`;
+                };
+                Gen['mc_setblock'] = function (block) {
+                    const blockType = block.getFieldValue('BLOCK') || 'stone';
+                    return `setblock ~ ~ ~ ${blockType}\\n`;
+                };
+                Gen['mc_tp'] = function (block) {
+                    const pos = block.getFieldValue('POS') || '~ ~1 ~';
+                    return `tp @p ${pos}\\n`;
+                };
+                Gen['mc_effect'] = function (block) {
+                    const eff = block.getFieldValue('EFFECT') || 'levitation';
+                    const dur = block.getFieldValue('DURATION') || '3';
+                    const amp = block.getFieldValue('AMP') || '1';
+                    return `effect give @p minecraft:${eff} ${dur} ${amp}\\n`;
+                };
+                Gen['mc_playsound'] = function (block) {
+                    const sound = block.getFieldValue('SOUND') || 'minecraft:entity.player.levelup';
+                    const target = block.getFieldValue('TARGET') || '@p';
+                    return `playsound ${sound} master ${target} ~ ~ ~ 1 1\\n`;
+                };
+                Gen['mc_weather'] = function (block) {
+                    const t = block.getFieldValue('TYPE') || 'clear';
+                    return `weather ${t}\\n`;
+                };
+                Gen['mc_time'] = function (block) {
+                    const t = block.getFieldValue('TYPE') || 'day';
+                    return t === 'day' ? 'time set day\\n' : 'time set night\\n';
+                };
+                Gen['mc_summon'] = function (block) {
+                    const ent = block.getFieldValue('ENTITY') || 'minecraft:zombie ~ ~ ~';
+                    return `${ent}\\n`;
+                };
+                Gen['mc_title'] = function (block) {
+                    const txt = block.getFieldValue('TEXT') || 'Hello';
+                    return `title @a title {"text":"${txt}"}\\n`;
+                };
+                Gen['mc_execute'] = function (block) {
+                    const cmd = block.getFieldValue('CMD') || '';
+                    return cmd + '\\n';
+                };
+
+                // Override some control generators to avoid JS 'return' or weird constructs
+                Gen['controls_if'] = function (block) {
+                    // We'll just concatenate the DO branches (can't reliably translate boolean conditions to mc)
+                    let code = '';
+                    const n = block.elseifCount_ || 0;
+                    // main DO0
+                    code += Gen.statementToCode(block, 'DO0') || '';
+                    for (let i = 1; i <= n; i++) code += Gen.statementToCode(block, 'DO' + i) || '';
+                    // else branch
+                    code += Gen.statementToCode(block, 'ELSE') || '';
+                    return code;
+                };
+                Gen['controls_repeat_ext'] = function (block) {
+                    const times = Gen.valueToCode(block, 'TIMES', Gen.ORDER_ATOMIC) || '0';
+                    const body = Gen.statementToCode(block, 'DO') || '';
+                    const n = Number(times);
+                    if (!Number.isNaN(n) && Number.isFinite(n) && n > 0 && n < 1000) {
+                        let code = '';
+                        for (let i = 0; i < n; i++) code += body;
+                        return code;
+                    }
+                    // fallback
+                    return body;
+                };
+                // math_number value generator (simple)
+                Gen['math_number'] = function (block) {
+                    return String(block.getFieldValue('NUM'));
+                };
+
+                // Helper: generate mcfunction script from workspace
+                function generateScript() {
+                    try {
+                        const code = Blockly.JavaScript.workspaceToCode(workspace) || '';
+                        return String(code).trim();
+                    } catch (e) {
+                        console.error('Codegen failed', e);
+                        throw e;
+                    }
+                }
+
+                // Load initial script parameter into workspace (best-effort)
+                function loadScriptText(scriptParam) {
+                    if (!scriptParam) return;
+                    let decoded = scriptParam;
+                    try { decoded = decodeURIComponent(scriptParam.replace(/\+/g, ' ')); } catch (e) { /* ignore decode errors */ }
+                    const lines = decoded.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                    // For each line try to create a matching block
+                    lines.forEach(line => {
+                        const token = (line.split(/\s+/)[0] || '').toLowerCase();
+                        let blk = null;
+                        try {
+                            if (token === 'say') {
+                                blk = workspace.newBlock('mc_say');
+                                blk.setFieldValue(line.slice(4).trim() || 'Hello', 'TEXT');
+                            } else if (token === 'tellraw') {
+                                blk = workspace.newBlock('mc_tellraw');
+                                blk.setFieldValue(line.slice('tellraw'.length).trim() || '{"rawtext":[{"text":"Welcome!"}]}', 'TEXT');
+                            } else if (token === 'give') {
+                                blk = workspace.newBlock('mc_give');
+                                const parts = line.split(/\s+/);
+                                blk.setFieldValue(parts[2] || parts[1] || 'diamond', 'ITEM');
+                                blk.setFieldValue(parts[3] || '1', 'COUNT');
+                            } else if (token === 'setblock') {
+                                blk = workspace.newBlock('mc_setblock');
+                                const parts = line.split(/\s+/);
+                                blk.setFieldValue(parts[3] || parts[1] || 'stone', 'BLOCK');
+                            } else if (token === 'tp') {
+                                blk = workspace.newBlock('mc_tp');
+                                blk.setFieldValue(line.split(/\s+/).slice(2).join(' ') || '~ ~1 ~', 'POS');
+                            } else if (token === 'effect') {
+                                blk = workspace.newBlock('mc_effect');
+                                // naive parse
+                                const parts = line.split(/\s+/);
+                                const tail = parts.slice(-3);
+                                if (tail.length === 3 && !isNaN(Number(tail[1]))) {
+                                    blk.setFieldValue(tail[0], 'EFFECT');
+                                    blk.setFieldValue(tail[1], 'DURATION');
+                                    blk.setFieldValue(tail[2], 'AMP');
+                                } else {
+                                    blk.setFieldValue(parts[1] || 'levitation', 'EFFECT');
+                                }
+                            } else if (token === 'playsound') {
+                                blk = workspace.newBlock('mc_playsound');
+                                const parts = line.split(/\s+/);
+                                blk.setFieldValue(parts[1] || 'minecraft:entity.player.levelup', 'SOUND');
+                                blk.setFieldValue(parts.includes('@p') ? '@p' : (parts[2] || '@p'), 'TARGET');
+                            } else if (token === 'weather') {
+                                blk = workspace.newBlock('mc_weather');
+                                blk.setFieldValue(line.split(/\s+/)[1] || 'clear', 'TYPE');
+                            } else if (token === 'time') {
+                                blk = workspace.newBlock('mc_time');
+                                const t = line.includes('day') ? 'day' : (line.includes('night') ? 'night' : 'day');
+                                blk.setFieldValue(t, 'TYPE');
+                            } else if (token === 'summon') {
+                                blk = workspace.newBlock('mc_summon');
+                                blk.setFieldValue(line.replace(/^summon\s*/i, '') || 'minecraft:zombie ~ ~ ~', 'ENTITY');
+                            } else if (token === 'title') {
+                                blk = workspace.newBlock('mc_title');
+                                blk.setFieldValue(line.replace(/^title\s*@a\s*title\s*/i, '') || 'Hello', 'TEXT');
+                            } else if (token === 'execute') {
+                                blk = workspace.newBlock('mc_execute');
+                                blk.setFieldValue(line, 'CMD');
+                            } else {
+                                // fallback: execute block with whole line
+                                blk = workspace.newBlock('mc_execute');
+                                blk.setFieldValue(line, 'CMD');
+                            }
+                            if (blk) { blk.initSvg(); blk.render(); }
+                        } catch (e) {
+                            console.warn('Failed to create block from line:', line, e);
+                        }
+                    });
+                }
+
+                // If there is a script param, load it (defensively)
+                if (scriptParamRaw) loadScriptText(scriptParamRaw);
+
+                hideLoading();
+
+                // Save handler: builds script and writes to firestore (if available)
+                saveBtn.addEventListener('click', async () => {
+                    saveBtn.disabled = true;
+                    const oldText = saveBtn.textContent;
+                    saveBtn.textContent = 'Saving...';
+                    try {
+                        const assembled = generateScript();
+                        // If firebase modules are available, use them to write to Firestore
+                        if (typeof getFirestoreFn === 'function') {
+                            // initialize firebase app instance (local copy)
+                            const firebaseModule = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js");
+                            const firestoreModule = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js");
+                            const app = firebaseModule.initializeApp({
+                                apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+                                authDomain: "minecraftaddoncreator.firebaseapp.com",
+                                projectId: "minecraftaddoncreator",
+                                storageBucket: "minecraftaddoncreator.appspot.com",
+                                messagingSenderId: "575674413085",
+                                appId: "1:575674413085:web:7b52ae5d59c418002816f4"
+                            });
+                            const db = firestoreModule.getFirestore(app);
+                            const username = localStorage.getItem('username');
+                            if (!username) {
+                                // cannot save without username — redirect to login as before
+                                setTimeout(() => location.href = "login.html", 80);
+                                throw new Error('no-username');
+                            }
+                            const modsRef = firestoreModule.collection(db, "users", username, "MODS");
+                            if (modId) {
+                                const target = firestoreModule.doc(db, "users", username, "MODS", modId);
+                                await firestoreModule.updateDoc(target, { name: modName, script: assembled });
+                            } else {
+                                await firestoreModule.addDoc(modsRef, { name: modName, script: assembled });
+                            }
+                        } else {
+                            // firebase not loaded — just log it (but not permitted to save)
+                            console.warn('Firebase not available — not saved. Script:\n', assembled);
+                        }
+                        saveBtn.textContent = 'Saved ✓';
+                        setTimeout(() => { saveBtn.textContent = oldText; saveBtn.disabled = false; }, 1000);
+                    } catch (e) {
+                        console.error('Save failed', e);
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = oldText;
+                        showError();
+                    }
+                });
+
+            } catch (err) {
+                console.error('Editor init error:', err);
+                // If the error is due to missing username we allowed redirect earlier; otherwise show overlay
+                showError();
+            }
+        })().catch(err => {
+            console.error('Fatal editor error:', err);
+            // Show overlay if possible
+            const overlay = document.getElementById('errorOverlay');
+            if (overlay) overlay.style.display = 'flex';
+        });
+    </script>
+</body>
+</html>
