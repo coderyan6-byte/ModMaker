@@ -357,6 +357,68 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        //----------------------------
+
+        async function getPublicIP() {
+            try {
+                const res = await fetch("https://api.ipify.org?format=json");
+                if (!res.ok) throw new Error("ip fetch failed");
+                const data = await res.json();
+                return data.ip;
+            } catch (err) {
+                console.error("Could not get public IP:", err);
+                return null;
+            }
+        }
+
+        // Read the Firestore blocked list and check for the IP
+        async function isBlocked(ip) {
+            if (!ip) return null;
+            try {
+                const docRef = doc(db, "Banlist", "BlockedIPs");
+                const snap = await getDoc(docRef);
+                if (!snap.exists()) return null;
+                const docData = snap.data();
+                const list = docData.List || [];
+
+                // Normalize and search. Be permissive about quotes in stored values.
+                // Exact-match only; change logic here if you want CIDR/range support.
+                const found = list.find(item => {
+                    if (!item) return false;
+                    const storedIP = (item.IP ?? "").toString().trim();
+                    if (!storedIP) return false;
+                    // Some console exports include quotes around values; handle that
+                    const storedIPUnquoted = storedIP.replace(/^"+|"+$/g, "");
+                    return storedIPUnquoted === ip;
+                });
+
+                return found || null;
+            } catch (err) {
+                console.error("Error reading Firestore:", err);
+                return null;
+            }
+        }
+
+        (async function main() {
+            const ip = await getPublicIP();
+            const blockedEntry = await isBlocked(ip);
+
+            if (blockedEntry) {
+                // build URL with reason and ip (URL-encoded)
+                const reason = typeof blockedEntry.Reason === "string" ? blockedEntry.Reason : (blockedEntry.reason || "Blocked");
+                const q = new URLSearchParams({
+                    reason: reason,
+                    ip: ip
+                });
+                // Redirect to BlockedIP.html with query string
+                window.location.replace("BlockedIP.html?" + q.toString());
+            } else {
+                // Not blocked or on any error -> go to lobby
+            }
+        })();
+
+        //----------------------------
+
         // panels & controls
         const loginUsernamePanel = document.getElementById('loginUsernamePanel');
         const loginPasswordPanel = document.getElementById('loginPasswordPanel');
