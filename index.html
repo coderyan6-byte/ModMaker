@@ -1,11 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; URL='lobby.html'" />
+    <meta charset="utf-8" />
     <title>Redirecting...</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
 </head>
 <body>
-    <p>If you are not redirected automatically, <a href="lobby.html">click here</a>.</p>
+    <p>Redirecting… if nothing happens, <a id="fallback" href="lobby.html">click here</a>.</p>
+
+    <!-- Use the Firebase v9 modular SDK from CDN -->
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    // ---------- FILL THIS WITH YOUR Firebase config ----------
+    const firebaseConfig = {
+        apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
+        authDomain: "minecraftaddoncreator.firebaseapp.com",
+        projectId: "minecraftaddoncreator",
+        storageBucket: "minecraftaddoncreator.firebasestorage.app",
+        messagingSenderId: "575674413085",
+        appId: "1:575674413085:web:7b52ae5d59c418002816f4",
+        measurementId: "G-HL866H9RQL"
+    };
+    // --------------------------------------------------------
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Fetch public IP (using ipify). ipify allows CORS and is simple.
+    async function getPublicIP() {
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        if (!res.ok) throw new Error("ip fetch failed");
+        const data = await res.json();
+        return data.ip; // e.g. "24.19.59.217"
+      } catch (err) {
+        console.error("Could not get public IP:", err);
+        return null;
+      }
+    }
+
+    // Read the Firestore blocked list and check for the IP
+    async function isBlocked(ip) {
+      if (!ip) return null;
+      try {
+        const docRef = doc(db, "Banlist", "BlockedIPs");
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return null;
+        const docData = snap.data();
+        const list = docData.List || []; // expected array of objects like { IP: "1.2.3.4", Reason: "..." }
+
+        // Normalize and search. Be permissive about quotes in stored values.
+        // Exact-match only; change logic here if you want CIDR/range support.
+        const found = list.find(item => {
+          if (!item) return false;
+          const storedIP = (item.IP ?? "").toString().trim();
+          if (!storedIP) return false;
+          // Some console exports include quotes around values; handle that
+          const storedIPUnquoted = storedIP.replace(/^"+|"+$/g, "");
+          return storedIPUnquoted === ip;
+        });
+
+        return found || null;
+      } catch (err) {
+        console.error("Error reading Firestore:", err);
+        return null;
+      }
+    }
+
+    // Main: get IP, check it, redirect appropriately
+    (async function main() {
+      const ip = await getPublicIP();
+      const blockedEntry = await isBlocked(ip);
+
+      if (blockedEntry) {
+        // build URL with reason and ip (URL-encoded)
+        const reason = typeof blockedEntry.Reason === "string" ? blockedEntry.Reason : (blockedEntry.reason || "Blocked");
+        const q = new URLSearchParams({
+          reason: reason,
+          ip: ip
+        });
+        // Redirect to BlockedIP.html with query string
+        window.location.replace("BlockedIP.html?" + q.toString());
+      } else {
+        // Not blocked or on any error -> go to lobby
+        window.location.replace("lobby.html");
+      }
+    })();
+    </script>
 </body>
 </html>
