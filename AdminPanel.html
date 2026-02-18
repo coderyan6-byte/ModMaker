@@ -119,6 +119,7 @@
                 margin: 0.3rem 0;
             }
 
+        /* Generic modal (confirmation) - higher z so it sits above ipModal */
         .modal {
             position: fixed;
             inset: 0;
@@ -126,7 +127,7 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 2000;
+            z-index: 3000; /* <-- higher than IP modal */
         }
 
         .modal-content {
@@ -150,6 +151,11 @@
                 border: none;
                 font-size: 1rem;
             }
+
+        /* ipModal: lower z-index so the generic modal overlays it */
+        #ipModal.modal {
+            z-index: 2000;
+        }
 
         /* --- Modal Action Buttons --- */
         .modal-actions {
@@ -277,7 +283,7 @@
         </div>
     </div>
 
-    <!-- Generic modal used by appeals/resolutions -->
+    <!-- Generic modal used by appeals/resolutions and confirmations -->
     <div id="modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
@@ -289,7 +295,7 @@
         </div>
     </div>
 
-    <!-- IP modal (add new IP) -->
+    <!-- IP modal (add new IP) - note it uses .modal class but lower z-index via CSS selector -->
     <div id="ipModal" class="modal">
         <div class="modal-content">
             <h3 id="ipModalTitle">Add Blocked IP</h3>
@@ -297,7 +303,7 @@
             <input id="ipReason" placeholder="Reason (optional)" />
             <div class="modal-actions">
                 <button id="ipAddConfirm" class="confirm-resolve">Add IP</button>
-                <button id="ipCancel" id="modal-cancel">Cancel</button>
+                <button id="ipCancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -319,6 +325,8 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        
+
         // --- Elements ---
         const currentUsername = localStorage.getItem("username");
         const usersSection = document.getElementById("users");
@@ -333,6 +341,13 @@
         const searchInput = document.getElementById("searchInput");
         const refreshIpBans = document.getElementById("refreshIpBans");
         const openAddIp = document.getElementById("openAddIp");
+        const ipModal = document.getElementById("ipModal");
+        const ipInput = document.getElementById("ipInput");
+        const ipReason = document.getElementById("ipReason");
+        const ipAddConfirm = document.getElementById("ipAddConfirm");
+        const ipCancel = document.getElementById("ipCancel");
+
+
 
         // --- Tabs ---
         function showTab(which) {
@@ -379,6 +394,8 @@
             console.error("admin check error", err);
             document.body.innerHTML = "<h1>Access Denied</h1><p>Auth check failed.</p>";
         });
+
+
 
         // --- Load Users + Banned in one pass ---
         function loadUsersAndBanned() {
@@ -457,14 +474,33 @@
             confirmBtn.className = "";
             confirmBtn.classList.add(confirmLabel === "Deny" ? "confirm-deny" : "confirm-resolve");
 
+            // If the ipModal is currently visible, disable pointer-events on it so
+            // the confirmation modal truly overlays and blocks interaction beneath.
+            const ipModalEl = document.getElementById("ipModal");
+            const ipModalWasVisible = ipModalEl && ipModalEl.style.display === "flex";
+            if (ipModalEl && ipModalWasVisible) {
+                ipModalEl.style.pointerEvents = "none";
+                ipModalEl.style.opacity = "0.9"; // slight visual cue that it's behind
+            }
+
             modal.style.display = "flex";
 
+            // confirm handler restores ipModal pointer-events when closing
             confirmBtn.onclick = () => {
-                if (onConfirm) onConfirm();
-                modal.style.display = "none";
+                try { if (onConfirm) onConfirm(); } finally {
+                    modal.style.display = "none";
+                    if (ipModalEl && ipModalWasVisible) {
+                        ipModalEl.style.pointerEvents = "";
+                        ipModalEl.style.opacity = "";
+                    }
+                }
             };
             cancelBtn.onclick = () => {
                 modal.style.display = "none";
+                if (ipModalEl && ipModalWasVisible) {
+                    ipModalEl.style.pointerEvents = "";
+                    ipModalEl.style.opacity = "";
+                }
             };
         }
 
@@ -536,48 +572,7 @@
             });
         }
 
-        // --- Ban / Unban ---
-        let selectedUser = null;
-        function openBanModal(username) {
-            selectedUser = username;
-            document.getElementById("banModal").style.display = "flex";
-        }
-        document.getElementById("confirmBan").onclick = () => {
-            const reason = document.getElementById("banReason").value.trim();
-            const date = document.getElementById("banDate").value;
-            if (!reason || !date) return;
-
-            db.collection("users").doc(selectedUser).collection("ban").doc("info").set({
-                reason,
-                duration: "Permanent",
-                dateIssued: date
-            }).then(() => {
-
-                db.collection("users").doc(selectedUser).set({
-                    Danger: reason
-                }, { merge: true });
-
-                document.getElementById("banModal").style.display = "none";
-                document.getElementById("banReason").value = "";
-                document.getElementById("banDate").value = "";
-                location.reload();
-            });
-        };
-        function unbanUser(username, button) {
-            db.collection("users").doc(username).collection("ban").doc("info").delete().then(() => {
-                // If we're on Users tab, update the card UI
-                if (button && button.parentElement) {
-                    button.textContent = "Ban User";
-                    button.setAttribute("onclick", `openBanModal('${username}')`);
-                    const statusP = button.parentElement.querySelector("p:nth-child(3)");
-                    if (statusP) statusP.textContent = "Status: Active";
-                }
-                // Also refresh banned list (simplest is a reload to keep everything in sync)
-                location.reload();
-            });
-        }
-
-        // --- IP Bans management ---
+        // --- Load IP bans management ---
         function renderIpBans(list) {
             blockedIpList.innerHTML = "";
             if (!list || !Array.isArray(list) || list.length === 0) {
@@ -639,6 +634,19 @@
             });
         }
 
+        // helper: fetch the current admin public IP
+        async function getPublicIP() {
+            try {
+                const res = await fetch("https://api.ipify.org?format=json");
+                if (!res.ok) throw new Error("ip fetch failed");
+                const j = await res.json();
+                return (j && j.ip) ? j.ip.trim() : null;
+            } catch (err) {
+                console.warn("Could not fetch public IP:", err);
+                return null;
+            }
+        }
+
         // Add IP ban (transactionally)
         function addIpBan(ip, reason) {
             if (!ip || ip.trim() === "") {
@@ -666,9 +674,9 @@
                     return true;
                 });
             }).then(() => {
-                document.getElementById("ipModal").style.display = "none";
-                document.getElementById("ipInput").value = "";
-                document.getElementById("ipReason").value = "";
+                ipModal.style.display = "none";
+                ipInput.value = "";
+                ipReason.value = "";
                 loadIpBans();
             }).catch(err => {
                 if (err && err.message === "already_exists") {
@@ -703,14 +711,42 @@
         // --- Wire up IP modal buttons ---
         refreshIpBans.addEventListener("click", loadIpBans);
         openAddIp.addEventListener("click", () => {
-            document.getElementById("ipModal").style.display = "flex";
+            ipModal.style.display = "flex";
         });
-        document.getElementById("ipCancel").addEventListener("click", () => {
-            document.getElementById("ipModal").style.display = "none";
+        ipCancel.addEventListener("click", () => {
+            ipModal.style.display = "none";
         });
-        document.getElementById("ipAddConfirm").addEventListener("click", () => {
-            const ip = document.getElementById("ipInput").value.trim();
-            const reason = document.getElementById("ipReason").value.trim();
+
+        // New: when clicking Add, check whether the entered IP equals admin's current public IP
+        ipAddConfirm.addEventListener("click", async () => {
+            const ip = (ipInput.value || "").trim();
+            const reason = (ipReason.value || "").trim();
+            if (!ip) {
+                alert("Please enter an IP address.");
+                return;
+            }
+
+            // try to fetch the admin's public IP; if it matches the entered IP, show warning confirm
+            const myIp = await getPublicIP();
+
+            if (myIp && myIp === ip) {
+                // show confirmation modal warning that this is the admin's IP
+                openModal("Confirm Add IP", `<p>Are you sure? <strong>This is YOUR IP.</strong><br><br>Blocking your own IP may prevent you from accessing admin tools from this network.</p>`, () => {
+                    // on confirm -> actually add
+                    addIpBan(ip, reason);
+                }, "Add");
+                return;
+            }
+
+            // if we couldn't fetch the admin IP (myIp === null), be slightly cautious: ask a simple confirm
+            if (!myIp) {
+                openModal("Confirm Add IP", `<p>Could not verify your public IP. Are you sure you want to add <strong>${ip}</strong> to the blocked list?</p>`, () => {
+                    addIpBan(ip, reason);
+                }, "Add");
+                return;
+            }
+
+            // otherwise safe to add
             addIpBan(ip, reason);
         });
 
