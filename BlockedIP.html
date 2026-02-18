@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Access Denied</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        /* Only center things on the page */
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .box {
+            text-align: center;
+            max-width: 640px;
+            padding: 16px;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="center">
+        <div class="box" id="content">
+            <h1 id="title">Access Denied</h1>
+            <p id="message">You have been blocked from accessing this site.</p>
+
+            <p id="reasonLine">Reason: <span id="reasonText">Loading…</span></p>
+            <p id="ipLine">IP: <span id="ipText">Loading…</span></p>
+
+            <p id="moreInfo">
+                If you think this is a mistake, you can <a id="appealLink" href="appeal.html">submit an appeal</a>.
+                Otherwise, <a id="homeLink" href="lobby.html">return to the lobby</a>.
+            </p>
+
+            <p style="font-size:0.9em;color:#444" id="note">
+                Note: This block is enforced by our systems. If you need help, use the appeal page.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+
+            // Get values from URL safely
+            const rawReason = params.get("reason") || "No reason provided";
+            const rawIp = params.get("ip") || "Unknown IP";
+
+            // Use textContent to avoid HTML injection
+            document.getElementById("reasonText").textContent = rawReason;
+            document.getElementById("ipText").textContent = rawIp;
+
+            // Build appeal link with encoded query parameters so appeal page can prefill fields
+            const appeal = document.getElementById("appealLink");
+            const appealParams = new URLSearchParams({
+                ip: rawIp,
+                reason: rawReason
+            });
+            appeal.href = "appeal.html?" + appealParams.toString();
+
+            // Optional: adjust text if ip unknown
+            if (rawIp === "Unknown IP") {
+                document.getElementById("ipLine").style.display = "none";
+            }
+
+            // Friendly fallback for title/message if reason is empty
+            if (!rawReason || rawReason.trim() === "" || rawReason === "No reason provided") {
+                document.getElementById("message").textContent = "You have been blocked from accessing this site.";
+            } else {
+                document.getElementById("message").textContent = "Access has been denied for the following reason.";
+            }
+
+            // Link back to lobby
+            document.getElementById("homeLink").href = "lobby.html";
+        })();
+    </script>
+</body>
+</html>
