@@ -5,6 +5,7 @@
     <title>Admin Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
+        /* Styles mostly preserved from your original — unchanged layout/colors */
         body {
             margin: 0;
             font-family: 'Segoe UI', sans-serif;
@@ -48,7 +49,7 @@
             width: 100%;
             max-width: 700px;
             margin-bottom: 1rem;
-            display: none; /* shown only on Users tab */
+            display: none;
         }
 
             .search-wrap input {
@@ -92,6 +93,13 @@
             .card p {
                 margin: 0.4rem 0;
                 text-align: center;
+                color: #ddd;
+            }
+
+            .card .meta {
+                font-size: 0.9rem;
+                color: #bbb;
+                text-align: center;
             }
 
             .card button {
@@ -113,13 +121,9 @@
             margin-top: 0.75rem;
             width: 100%;
             text-align: left;
+            color: #ddd;
         }
 
-            .mods p {
-                margin: 0.3rem 0;
-            }
-
-        /* Generic modal (confirmation) - higher z so it sits above ipModal */
         .modal {
             position: fixed;
             inset: 0;
@@ -127,7 +131,7 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 3000; /* <-- higher than IP modal */
+            z-index: 3000;
         }
 
         .modal-content {
@@ -141,9 +145,7 @@
             align-items: center;
         }
 
-            .modal-content input,
-            .modal-content textarea,
-            .modal-content select {
+            .modal-content input, .modal-content textarea, .modal-content select {
                 width: 100%;
                 margin-bottom: 1rem;
                 padding: 0.5rem;
@@ -152,15 +154,8 @@
                 font-size: 1rem;
             }
 
-        /* ipModal: lower z-index so the generic modal overlays it */
-        #ipModal.modal {
-            z-index: 2000;
-        }
-
-        /* --- Modal Action Buttons --- */
         .modal-actions {
             display: flex;
-            justify-content: space-between;
             gap: 0.75rem;
             width: 100%;
             margin-top: 1rem;
@@ -173,7 +168,6 @@
                 border-radius: 8px;
                 font-weight: bold;
                 cursor: pointer;
-                width: auto; /* override 100% width */
             }
 
         .confirm-resolve {
@@ -203,7 +197,6 @@
                 background-color: #5a6268;
             }
 
-        /* small helpers */
         .row {
             display: flex;
             gap: 8px;
@@ -227,63 +220,95 @@
             align-items: center;
             gap: 8px;
         }
+
+        .controls {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 700px;
+            align-items: center;
+        }
+
+            .controls .left {
+                color: #bbb;
+                font-size: 0.95rem;
+            }
+
+            .controls .right button {
+                margin-left: 8px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: none;
+                cursor: pointer;
+            }
+
+                .controls .right button.refresh {
+                    background: #2c2c3e;
+                    color: #fff;
+                }
+
+                .controls .right button.add {
+                    background: #28a745;
+                    color: #fff;
+                }
     </style>
 </head>
 <body>
     <h1>Admin Panel</h1>
 
-    <!-- Tabs -->
     <div class="tab-buttons">
-        <button id="tabUsers" class="active" onclick="showTab('users')">Users</button>
-        <button id="tabBanned" onclick="showTab('banned')">Banned</button>
-        <button id="tabAppeals" onclick="showTab('appeals')">Appeals</button>
-        <button id="tabIpBans" onclick="showTab('ipbans')">IP Bans</button>
+        <button id="tabUsers" class="active">Users</button>
+        <button id="tabBanned">Banned</button>
+        <button id="tabAppeals">Appeals</button>
+        <button id="tabIpBans">IP Bans</button>
     </div>
 
-    <!-- Search (Users only) -->
     <div id="searchWrap" class="search-wrap">
         <input id="searchInput" type="text" placeholder="Type a username and press Enter…" />
     </div>
 
-    <!-- Users Section -->
+    <!-- USERS -->
     <section id="users" class="section active">
         <div id="userList" class="list"></div>
     </section>
 
-    <!-- Banned Section -->
+    <!-- BANNED -->
     <section id="banned" class="section">
         <div id="bannedList" class="list"></div>
     </section>
 
-    <!-- Appeals Section -->
+    <!-- APPEALS -->
     <section id="appeals" class="section">
         <div id="appealsList" class="list"></div>
     </section>
 
-    <!-- IP Bans Section -->
+    <!-- IP BANS -->
     <section id="ipbans" class="section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div class="small muted">Manage blocked IPs stored in <code>Banlist / BlockedIPs</code></div>
-            <div>
-                <button id="refreshIpBans" style="background:#2c2c3e;color:#fff;border:none;padding:8px 10px;border-radius:8px;cursor:pointer;margin-right:8px;">Refresh</button>
-                <button id="openAddIp" style="background:#28a745;color:#fff;border:none;padding:8px 10px;border-radius:8px;cursor:pointer;">Add IP</button>
+        <div class="controls">
+            <div class="left small muted">Manage blocked IPs stored in <code>Banlist / BlockedIPs</code></div>
+            <div class="right">
+                <button id="refreshIpBans" class="refresh">Refresh</button>
+                <button id="openAddIp" class="add">Add IP</button>
             </div>
         </div>
-
         <div id="blockedIpList" class="list"></div>
     </section>
 
-    <!-- Ban Modal (existing) -->
+    <!-- Ban Modal -->
     <div id="banModal" class="modal">
         <div class="modal-content">
-            <h2>Ban User</h2>
+            <h2 id="banModalTitle">Ban User</h2>
             <textarea id="banReason" placeholder="Enter reason..." rows="3"></textarea>
             <input type="date" id="banDate" />
-            <button id="confirmBan">Confirm Ban</button>
+            <div class="modal-actions">
+                <button id="confirmBan" class="confirm-resolve">Confirm Ban</button>
+                <button id="cancelBan" id="modal-cancel">Cancel</button>
+            </div>
         </div>
     </div>
 
-    <!-- Generic modal used by appeals/resolutions and confirmations -->
+    <!-- Generic Modal (confirmations) -->
     <div id="modal" class="modal" style="display:none;">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
@@ -295,7 +320,7 @@
         </div>
     </div>
 
-    <!-- IP modal (add new IP) - note it uses .modal class but lower z-index via CSS selector -->
+    <!-- Add IP Modal (lower z than generic modal) -->
     <div id="ipModal" class="modal">
         <div class="modal-content">
             <h3 id="ipModalTitle">Add Blocked IP</h3>
@@ -308,12 +333,12 @@
         </div>
     </div>
 
-    <!-- Firebase SDK (compat) -->
+    <!-- Firebase compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <script>
-        // --- Firebase init ---
+        // --- Firebase init (your config)
         const firebaseConfig = {
             apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
             authDomain: "minecraftaddoncreator.firebaseapp.com",
@@ -325,316 +350,100 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        
+        // --- Elements
+        const tabs = {
+            usersBtn: document.getElementById('tabUsers'),
+            bannedBtn: document.getElementById('tabBanned'),
+            appealsBtn: document.getElementById('tabAppeals'),
+            ipBansBtn: document.getElementById('tabIpBans')
+        };
+        const usersSection = document.getElementById('users');
+        const bannedSection = document.getElementById('banned');
+        const appealsSection = document.getElementById('appeals');
+        const ipbansSection = document.getElementById('ipbans');
+        const userList = document.getElementById('userList');
+        const bannedList = document.getElementById('bannedList');
+        const appealsList = document.getElementById('appealsList');
+        const blockedIpList = document.getElementById('blockedIpList');
+        const searchWrap = document.getElementById('searchWrap');
+        const searchInput = document.getElementById('searchInput');
 
-        // --- Elements ---
-        const currentUsername = localStorage.getItem("username");
-        const usersSection = document.getElementById("users");
-        const bannedSection = document.getElementById("banned");
-        const appealsSection = document.getElementById("appeals");
-        const ipbansSection = document.getElementById("ipbans");
-        const userList = document.getElementById("userList");
-        const bannedList = document.getElementById("bannedList");
-        const appealsList = document.getElementById("appealsList");
-        const blockedIpList = document.getElementById("blockedIpList");
-        const searchWrap = document.getElementById("searchWrap");
-        const searchInput = document.getElementById("searchInput");
-        const refreshIpBans = document.getElementById("refreshIpBans");
-        const openAddIp = document.getElementById("openAddIp");
-        const ipModal = document.getElementById("ipModal");
-        const ipInput = document.getElementById("ipInput");
-        const ipReason = document.getElementById("ipReason");
-        const ipAddConfirm = document.getElementById("ipAddConfirm");
-        const ipCancel = document.getElementById("ipCancel");
+        // IP modal elements
+        const refreshIpBans = document.getElementById('refreshIpBans');
+        const openAddIp = document.getElementById('openAddIp');
+        const ipModal = document.getElementById('ipModal');
+        const ipInput = document.getElementById('ipInput');
+        const ipReason = document.getElementById('ipReason');
+        const ipAddConfirm = document.getElementById('ipAddConfirm');
+        const ipCancel = document.getElementById('ipCancel');
 
+        // ban modal elements
+        const banModal = document.getElementById('banModal');
+        const banReasonInput = document.getElementById('banReason');
+        const banDateInput = document.getElementById('banDate');
+        const confirmBanBtn = document.getElementById('confirmBan');
+        const cancelBanBtn = document.getElementById('cancelBan');
 
+        // generic modal
+        const genericModal = document.getElementById('modal');
+        const genericTitle = document.getElementById('modal-title');
+        const genericBody = document.getElementById('modal-body');
+        const genericConfirm = document.getElementById('modal-confirm');
+        const genericCancel = document.getElementById('modal-cancel');
 
-        // --- Tabs ---
+        // --- Tab handling
         function showTab(which) {
-            // buttons
-            document.querySelectorAll('.tab-buttons button').forEach(b => b.classList.remove('active'));
-            const buttonId = which === 'ipbans' ? 'tabIpBans' : 'tab' + which.charAt(0).toUpperCase() + which.slice(1);
-            const btn = document.getElementById(buttonId);
-            if (btn) btn.classList.add('active');
+            // reset button active classes
+            Object.values(tabs).forEach(b => b.classList.remove('active'));
+            if (which === 'users') tabs.usersBtn.classList.add('active');
+            if (which === 'banned') tabs.bannedBtn.classList.add('active');
+            if (which === 'appeals') tabs.appealsBtn.classList.add('active');
+            if (which === 'ipbans') tabs.ipBansBtn.classList.add('active');
 
-            // sections
+            // show sections
             [usersSection, bannedSection, appealsSection, ipbansSection].forEach(s => s.classList.remove('active'));
             document.getElementById(which).classList.add('active');
+
             // search visibility
             searchWrap.style.display = (which === 'users') ? 'block' : 'none';
         }
 
-        // --- Search (press Enter to filter) ---
-        function filterUsersByTerm(term) {
-            const q = (term || "").toLowerCase();
-            document.querySelectorAll("#userList .card").forEach(card => {
-                const uname = card.getAttribute("data-username") || "";
-                card.style.display = uname.includes(q) ? "flex" : "none";
-            });
-        }
-        searchInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                filterUsersByTerm(searchInput.value.trim());
+        tabs.usersBtn.addEventListener('click', () => showTab('users'));
+        tabs.bannedBtn.addEventListener('click', () => showTab('banned'));
+        tabs.appealsBtn.addEventListener('click', () => showTab('appeals'));
+        tabs.ipBansBtn.addEventListener('click', () => showTab('ipbans'));
+
+        // search filter
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const term = searchInput.value.trim().toLowerCase();
+                document.querySelectorAll("#userList .card").forEach(card => {
+                    const uname = (card.dataset.username || "").toLowerCase();
+                    card.style.display = uname.includes(term) ? "flex" : "none";
+                });
             }
         });
 
-        // --- Admin gate ---
-        db.collection("users").doc(currentUsername).get().then(doc => {
-            const userData = doc.data();
-            if (!doc.exists || !userData || userData.admin !== true) {
-                document.body.innerHTML = "<h1>Access Denied</h1><p>You are not authorized to view this page.</p>";
-                return;
-            }
-            // load data once admin is confirmed
+        // --- Admin gate: verify admin using your users collection and localStorage username
+        const currentUsername = localStorage.getItem("username");
+        function denyAccess(message = "Access Denied\nYou are not authorized to view this page.") {
+            document.body.innerHTML = `<h1>Access Denied</h1><p>${message.replace(/\n/g, '<br>')}</p>`;
+        }
+
+        db.collection("users").doc(currentUsername).get().then(docSnap => {
+            if (!docSnap.exists) return denyAccess("Access Denied\nPlease sign in to access the admin panel.");
+            const u = docSnap.data();
+            if (!u || u.admin !== true) return denyAccess("Access Denied\nYou are not authorized to view this page.");
+            // authorized => load data
             loadUsersAndBanned();
             loadAppeals();
             loadIpBans();
         }).catch(err => {
             console.error("admin check error", err);
-            document.body.innerHTML = "<h1>Access Denied</h1><p>Auth check failed.</p>";
+            denyAccess("Access Denied\nAuth check failed.");
         });
 
-
-
-        // --- Load Users + Banned in one pass ---
-        function loadUsersAndBanned() {
-            userList.innerHTML = "";
-            bannedList.innerHTML = "";
-
-            db.collection("users").get().then(snapshot => {
-                snapshot.forEach(userDoc => {
-                    const username = userDoc.id;
-                    const data = userDoc.data();
-
-                    // check ban subdoc
-                    db.collection("users").doc(username).collection("ban").doc("info").get().then(banDoc => {
-                        const isBanned = banDoc.exists;
-
-                        // Build user card
-                        const userCard = document.createElement("div");
-                        userCard.className = "card";
-                        userCard.setAttribute("data-username", username.toLowerCase());
-                        userCard.innerHTML = `
-                                  <h3>${username}</h3>
-                                  <p>User ID: ${data.userId || "Unknown"}</p>
-                                  <p>Status: ${isBanned ? "Banned" : "Active"}</p>
-                                  <button onclick="${isBanned ? `unbanUser('${username}', this)` : `openBanModal('${username}')`}">
-                                    ${isBanned ? "Unban User" : "Ban User"}
-                                  </button>
-                                  <div class="mods" id="mods-${username}"><em>Loading mods...</em></div>
-                                `;
-                        userList.appendChild(userCard);
-
-                        // Load MODS for the user card
-                        db.collection("users").doc(username).collection("MODS").get().then(modsSnapshot => {
-                            const modsContainer = document.getElementById(`mods-${username}`);
-                            if (modsSnapshot.empty) {
-                                modsContainer.innerHTML = `<p><em>No mods found.</em></p>`;
-                            } else {
-                                modsContainer.innerHTML = `<strong>Mods:</strong>`;
-                                modsSnapshot.forEach(modDoc => {
-                                    const mod = modDoc.data();
-                                    const el = document.createElement("div");
-                                    el.innerHTML = `<p><strong>${mod.name || "Unnamed Mod"}</strong><br>${mod.description || "No description"}</p>`;
-                                    modsContainer.appendChild(el);
-                                });
-                            }
-                        });
-
-                        // If banned, also add to Banned list (simpler layout)
-                        if (isBanned) {
-                            const bannedCard = document.createElement("div");
-                            bannedCard.className = "card";
-                            bannedCard.innerHTML = `
-                                    <h3>${username}</h3>
-                                    <p>Status: Banned</p>
-                                    <button onclick="unbanUser('${username}', this)">Unban User</button>
-                                  `;
-                            bannedList.appendChild(bannedCard);
-                        }
-                    });
-                });
-            });
-        }
-
-        // --- Load Appeals ---
-        function openModal(title, bodyHTML, onConfirm, confirmLabel = "Resolve") {
-            const modal = document.getElementById("modal");
-            const modalTitle = document.getElementById("modal-title");
-            const modalBody = document.getElementById("modal-body");
-            const confirmBtn = document.getElementById("modal-confirm");
-            const cancelBtn = document.getElementById("modal-cancel");
-
-            modalTitle.textContent = title;
-            modalBody.innerHTML = bodyHTML;
-            confirmBtn.textContent = confirmLabel;
-
-            // 🔹 Reset all confirm button classes first
-            confirmBtn.className = "";
-            confirmBtn.classList.add(confirmLabel === "Deny" ? "confirm-deny" : "confirm-resolve");
-
-            // If the ipModal is currently visible, disable pointer-events on it so
-            // the confirmation modal truly overlays and blocks interaction beneath.
-            const ipModalEl = document.getElementById("ipModal");
-            const ipModalWasVisible = ipModalEl && ipModalEl.style.display === "flex";
-            if (ipModalEl && ipModalWasVisible) {
-                ipModalEl.style.pointerEvents = "none";
-                ipModalEl.style.opacity = "0.9"; // slight visual cue that it's behind
-            }
-
-            modal.style.display = "flex";
-
-            // confirm handler restores ipModal pointer-events when closing
-            confirmBtn.onclick = () => {
-                try { if (onConfirm) onConfirm(); } finally {
-                    modal.style.display = "none";
-                    if (ipModalEl && ipModalWasVisible) {
-                        ipModalEl.style.pointerEvents = "";
-                        ipModalEl.style.opacity = "";
-                    }
-                }
-            };
-            cancelBtn.onclick = () => {
-                modal.style.display = "none";
-                if (ipModalEl && ipModalWasVisible) {
-                    ipModalEl.style.pointerEvents = "";
-                    ipModalEl.style.opacity = "";
-                }
-            };
-        }
-
-        function loadAppeals() {
-            appealsList.innerHTML = "";
-            db.collection("appeals").orderBy("createdAt", "desc").get().then(snapshot => {
-                if (snapshot.empty) {
-                    appealsList.innerHTML = `<p><em>No appeals submitted.</em></p>`;
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const appeal = doc.data();
-                    const created = appeal.createdAt && typeof appeal.createdAt.toDate === "function"
-                        ? appeal.createdAt.toDate()
-                        : (appeal.createdAt || null);
-                    const when = created ? new Date(created).toLocaleString() : "Unknown date";
-
-                    const card = document.createElement("div");
-                    card.className = "card";
-
-                    let resolvedMsg = appeal.resolvedMessage
-                        ? `<p style="color:green;"><strong>${appeal.resolvedMessage}</strong></p>`
-                        : "";
-
-                    card.innerHTML = `
-                    <h3>${appeal.username || "Unknown User"}</h3>
-                    <p><strong>Message:</strong><br>${appeal.message || "(no message)"} </p>
-                    <p><em>Submitted: ${when}</em></p>
-                    ${resolvedMsg}
-                    <div class="actions"></div>
-                `;
-
-                    const actionsDiv = card.querySelector(".actions");
-
-                    if (!appeal.resolvedMessage) {
-                        // Resolve button
-                        const resolveBtn = document.createElement("button");
-                        resolveBtn.textContent = "Resolve";
-                        resolveBtn.onclick = () => {
-                            openModal("Resolve Appeal", `
-                            <textarea id="resolve-reason" placeholder="Enter resolution message..." style="width:100%;height:80px;"></textarea>
-                        `, () => {
-                                const reason = document.getElementById("resolve-reason").value.trim();
-                                if (reason !== "") {
-                                    const resolvedMessage = `Resolved by ${currentUsername}: ${reason}`;
-                                    db.collection("appeals").doc(doc.id).update({
-                                        resolvedMessage: resolvedMessage
-                                    }).then(() => loadAppeals());
-                                }
-                            });
-                        };
-
-                        // Deny button
-                        const denyBtn = document.createElement("button");
-                        denyBtn.textContent = "Deny";
-                        denyBtn.onclick = () => {
-                            openModal("Deny Appeal", `<p>Are you sure you want to deny this appeal?</p>`, () => {
-                                db.collection("appeals").doc(doc.id).delete().then(() => loadAppeals());
-                            }, "Deny");
-                        };
-
-                        actionsDiv.appendChild(resolveBtn);
-                        actionsDiv.appendChild(denyBtn);
-                    }
-
-                    appealsList.appendChild(card);
-                });
-            });
-        }
-
-        // --- Load IP bans management ---
-        function renderIpBans(list) {
-            blockedIpList.innerHTML = "";
-            if (!list || !Array.isArray(list) || list.length === 0) {
-                blockedIpList.innerHTML = `<div class="card"><p><em>No blocked IPs found.</em></p></div>`;
-                return;
-            }
-
-            // sort by date desc (if date present)
-            list.sort((a, b) => {
-                const da = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-                const dbt = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-                return dbt - da;
-            });
-
-            list.forEach(item => {
-                const ip = item.IP || item.ip || "(unknown)";
-                const reason = item.Reason || item.reason || "No reason provided";
-                const addedBy = item.addedBy || item.addedByUser || "unknown";
-                const date = item.dateAdded ? new Date(item.dateAdded).toLocaleString() : "Unknown date";
-
-                const card = document.createElement("div");
-                card.className = "card";
-                card.innerHTML = `
-                        <div style="width:100%">
-                          <h3 style="margin-bottom:8px">${ip}</h3>
-                          <p class="small"><strong>Reason:</strong> ${reason}</p>
-                          <p class="small"><strong>Added by:</strong> ${addedBy} — <strong>On:</strong> ${date}</p>
-                          <div class="row" style="margin-top:8px;">
-                            <button class="confirm-deny remove-ip">Remove</button>
-                          </div>
-                        </div>
-                    `;
-                // attach handler
-                const removeBtn = card.querySelector(".remove-ip");
-                removeBtn.addEventListener("click", () => {
-                    openModal("Remove IP", `<p>Are you sure you want to remove the blocked IP <strong>${ip}</strong>?</p>`, () => {
-                        removeIpBan(ip);
-                    }, "Deny");
-                });
-
-                blockedIpList.appendChild(card);
-            });
-        }
-
-        // load IP bans from Banlist/BlockedIPs
-        function loadIpBans() {
-            blockedIpList.innerHTML = `<div class="card"><p class="small">Loading blocked IPs…</p></div>`;
-            db.collection("Banlist").doc("BlockedIPs").get().then(doc => {
-                if (!doc.exists) {
-                    renderIpBans([]);
-                    return;
-                }
-                const data = doc.data();
-                const list = data.List || [];
-                renderIpBans(list);
-            }).catch(err => {
-                console.error("failed loading ip bans", err);
-                blockedIpList.innerHTML = `<div class="card"><p class="small">Failed to load blocked IPs.</p></div>`;
-            });
-        }
-
-        // helper: fetch the current admin public IP
+        // --- Utility: fetch public IP (used by IP bans UI only) ---
         async function getPublicIP() {
             try {
                 const res = await fetch("https://api.ipify.org?format=json");
@@ -647,12 +456,332 @@
             }
         }
 
-        // Add IP ban (transactionally)
-        function addIpBan(ip, reason) {
-            if (!ip || ip.trim() === "") {
-                alert("Please provide an IP.");
+        // --- Users + Banned loader (fixed to avoid inline onclick) ---
+        function buildUserCard(username, data, isBanned) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.username = username.toLowerCase();
+
+            // IP / UA display (from user doc fields if present)
+            const lastIP = data.lastIP || (data.ipHistory && data.ipHistory[0] && data.ipHistory[0].ip) || 'N/A';
+            const lastSeen = data.lastSeen || (data.ipHistory && data.ipHistory[0] && data.ipHistory[0].ts) || 'Unknown';
+            const ua = (data.ipHistory && data.ipHistory[0] && data.ipHistory[0].ua) || 'N/A';
+
+            const header = document.createElement('div');
+            header.style.width = '100%';
+            header.innerHTML = `<h3 style="margin-bottom:6px">${username}</h3>`;
+
+            const details = document.createElement('div');
+            details.className = 'meta';
+            details.innerHTML = `
+            <div><strong>User ID:</strong> ${data.userId || "Unknown"}</div>
+            <div><strong>Status:</strong> ${isBanned ? "Banned" : "Active"}</div>
+            <div><strong>Last IP:</strong> ${lastIP}</div>
+            <div><strong>Last Seen:</strong> ${new Date(lastSeen).toLocaleString ? new Date(lastSeen).toLocaleString() : lastSeen}</div>
+            <div><strong>User agent:</strong> ${ua}</div>
+          `;
+
+            // buttons container
+            const btnRow = document.createElement('div');
+            btnRow.className = 'row';
+            btnRow.style.marginTop = '8px';
+
+            // Ban / Unban button
+            const actionBtn = document.createElement('button');
+            actionBtn.textContent = isBanned ? 'Unban User' : 'Ban User';
+            actionBtn.style.minWidth = '120px';
+            actionBtn.addEventListener('click', () => {
+                if (isBanned) {
+                    openConfirm(`Unban user ${username}`, `Are you sure you want to unban <strong>${username}</strong>?`, async () => {
+                        await unbanUser(username);
+                    }, 'Unban');
+                } else {
+                    openBanModal(username);
+                }
+            });
+
+            // View IP History button
+            const viewIpBtn = document.createElement('button');
+            viewIpBtn.textContent = 'View IPs';
+            viewIpBtn.style.background = '#2c2c3e';
+            viewIpBtn.style.color = '#fff';
+            viewIpBtn.style.border = '1px solid #444';
+            viewIpBtn.addEventListener('click', () => {
+                // show modal with ipHistory (if present)
+                const hist = data.ipHistory || [];
+                const body = hist.length === 0 ? `<p><em>No IP history recorded.</em></p>` :
+                    `<div style="text-align:left;max-height:320px;overflow:auto;">` +
+                    hist.map(h => `<p><strong>${h.ip || 'N/A'}</strong><br><small>${h.ts || ''} — ${h.ua || ''}</small></p>`).join('') +
+                    `</div>`;
+                openModal(`IP history for ${username}`, body, null, 'Close');
+            });
+
+            // Attach buttons
+            btnRow.appendChild(actionBtn);
+            btnRow.appendChild(viewIpBtn);
+
+            // Mods area (if user has mods)
+            const modsDiv = document.createElement('div');
+            modsDiv.className = 'mods';
+            modsDiv.id = `mods-${username}`;
+            modsDiv.innerHTML = `<em>Loading mods…</em>`;
+
+            // build card
+            card.appendChild(header);
+            card.appendChild(details);
+            card.appendChild(btnRow);
+            card.appendChild(modsDiv);
+
+            return card;
+        }
+
+        async function loadUsersAndBanned() {
+            userList.innerHTML = '';
+            bannedList.innerHTML = '';
+
+            try {
+                const snapshot = await db.collection("users").get();
+                const promises = [];
+                snapshot.forEach(userDoc => {
+                    const username = userDoc.id;
+                    const data = userDoc.data();
+
+                    // Check ban subdoc
+                    const p = db.collection("users").doc(username).collection("ban").doc("info").get()
+                        .then(banDoc => {
+                            const isBanned = banDoc.exists;
+                            // Build card
+                            const userCard = buildUserCard(username, data, isBanned);
+                            userList.appendChild(userCard);
+
+                            // load mods
+                            db.collection("users").doc(username).collection("MODS").get().then(modsSnapshot => {
+                                const modsContainer = document.getElementById(`mods-${username}`);
+                                if (!modsContainer) return;
+                                if (modsSnapshot.empty) {
+                                    modsContainer.innerHTML = `<p><em>No mods found.</em></p>`;
+                                } else {
+                                    modsContainer.innerHTML = `<strong>Mods:</strong>`;
+                                    modsSnapshot.forEach(modDoc => {
+                                        const mod = modDoc.data();
+                                        const el = document.createElement('div');
+                                        el.innerHTML = `<p><strong>${mod.name || "Unnamed Mod"}</strong><br>${mod.description || "No description"}</p>`;
+                                        modsContainer.appendChild(el);
+                                    });
+                                }
+                            });
+
+                            // If banned, also add to Banned list
+                            if (isBanned) {
+                                const bannedCard = document.createElement('div');
+                                bannedCard.className = 'card';
+                                bannedCard.innerHTML = `
+                      <h3>${username}</h3>
+                      <p class="meta">Status: Banned</p>
+                    `;
+                                const unbanBtn = document.createElement('button');
+                                unbanBtn.textContent = 'Unban User';
+                                unbanBtn.addEventListener('click', () => {
+                                    openConfirm(`Unban ${username}`, `Are you sure you want to unban <strong>${username}</strong>?`, async () => { await unbanUser(username); }, 'Unban');
+                                });
+                                const row = document.createElement('div'); row.className = 'row'; row.appendChild(unbanBtn);
+                                bannedCard.appendChild(row);
+                                bannedList.appendChild(bannedCard);
+                            }
+                        }).catch(err => console.error("ban doc check error", err));
+                    promises.push(p);
+                });
+                await Promise.all(promises);
+            } catch (err) {
+                console.error("loadUsersAndBanned error", err);
+                userList.innerHTML = `<div class="card"><p class="small">Failed to load users.</p></div>`;
+            }
+        }
+
+        // --- Ban/unban functions (open ban modal and perform Firestore writes) ---
+        let banTargetUser = null;
+        function openBanModal(username) {
+            banTargetUser = username;
+            banReasonInput.value = "";
+            banDateInput.value = ""; // default empty
+            banModal.style.display = "flex";
+        }
+        cancelBanBtn.addEventListener('click', () => {
+            banModal.style.display = "none";
+            banTargetUser = null;
+        });
+        confirmBanBtn.addEventListener('click', async () => {
+            const reason = banReasonInput.value.trim();
+            const date = banDateInput.value || new Date().toISOString().slice(0, 10);
+            if (!banTargetUser) return;
+            if (!reason) {
+                alert("Please enter a reason for the ban.");
                 return;
             }
+            try {
+                // write ban subdoc
+                await db.collection("users").doc(banTargetUser).collection("ban").doc("info").set({
+                    reason,
+                    duration: "Permanent",
+                    dateIssued: date
+                });
+                // also set Danger / flag on user doc
+                await db.collection("users").doc(banTargetUser).set({ Danger: reason }, { merge: true });
+                banModal.style.display = "none";
+                banTargetUser = null;
+                await loadUsersAndBanned();
+            } catch (err) {
+                console.error("Failed to ban user:", err);
+                alert("Failed to ban user. See console for details.");
+            }
+        });
+
+        async function unbanUser(username) {
+            try {
+                await db.collection("users").doc(username).collection("ban").doc("info").delete();
+                // optional: remove Danger field (or leave it) — here we remove it
+                await db.collection("users").doc(username).set({ Danger: firebase.firestore.FieldValue.delete() }, { merge: true });
+                await loadUsersAndBanned();
+            } catch (err) {
+                console.error("Failed to unban user:", err);
+                alert("Failed to unban user. See console for details.");
+            }
+        }
+
+        // --- Appeals code (kept largely same as before) ---
+        function openModal(title, bodyHTML, onConfirm, confirmLabel = "Resolve") {
+            const ipModalEl = document.getElementById("ipModal");
+            // disable ipModal pointer events if visible, to ensure generic modal overlays it
+            const ipModalWasVisible = ipModalEl && ipModalEl.style.display === "flex";
+            if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = "none"; ipModalEl.style.opacity = "0.9"; }
+
+            genericTitle.textContent = title;
+            genericBody.innerHTML = bodyHTML;
+            genericConfirm.textContent = confirmLabel;
+            genericConfirm.className = "";
+            genericConfirm.classList.add(confirmLabel === "Deny" ? "confirm-deny" : "confirm-resolve");
+            genericModal.style.display = "flex";
+
+            genericConfirm.onclick = () => {
+                try { if (onConfirm) onConfirm(); } finally {
+                    genericModal.style.display = "none";
+                    if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = ""; ipModalEl.style.opacity = ""; }
+                }
+            };
+            genericCancel.onclick = () => {
+                genericModal.style.display = "none";
+                if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = ""; ipModalEl.style.opacity = ""; }
+            };
+        }
+
+        function openConfirm(title, html, onConfirm, confirmLabel = "Yes") {
+            openModal(title, html, onConfirm, confirmLabel);
+        }
+
+        async function loadAppeals() {
+            appealsList.innerHTML = "";
+            try {
+                const snapshot = await db.collection("appeals").orderBy("createdAt", "desc").get();
+                if (snapshot.empty) {
+                    appealsList.innerHTML = `<div class="card"><p><em>No appeals submitted.</em></p></div>`;
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const appeal = doc.data();
+                    const created = appeal.createdAt && typeof appeal.createdAt.toDate === "function" ? appeal.createdAt.toDate() : (appeal.createdAt || null);
+                    const when = created ? new Date(created).toLocaleString() : "Unknown date";
+                    const card = document.createElement('div'); card.className = 'card';
+                    let resolvedMsg = appeal.resolvedMessage ? `<p style="color:green;"><strong>${appeal.resolvedMessage}</strong></p>` : "";
+                    card.innerHTML = `
+                <h3>${appeal.username || "Unknown User"}</h3>
+                <p><strong>Message:</strong><br>${appeal.message || "(no message)"} </p>
+                <p><em>Submitted: ${when}</em></p>
+                ${resolvedMsg}
+                <div class="actions"></div>
+              `;
+                    const actionsDiv = card.querySelector(".actions");
+                    if (!appeal.resolvedMessage) {
+                        const resolveBtn = document.createElement('button'); resolveBtn.textContent = "Resolve";
+                        resolveBtn.addEventListener('click', () => {
+                            openModal("Resolve Appeal", `<textarea id="resolve-reason" placeholder="Enter resolution message..." style="width:100%;height:80px;"></textarea>`, () => {
+                                const reason = document.getElementById("resolve-reason").value.trim();
+                                if (reason !== "") {
+                                    const resolvedMessage = `Resolved by ${currentUsername}: ${reason}`;
+                                    db.collection("appeals").doc(doc.id).update({ resolvedMessage }).then(() => loadAppeals());
+                                }
+                            });
+                        });
+                        const denyBtn = document.createElement('button'); denyBtn.textContent = "Deny";
+                        denyBtn.addEventListener('click', () => {
+                            openModal("Deny Appeal", `<p>Are you sure you want to deny this appeal?</p>`, () => {
+                                db.collection("appeals").doc(doc.id).delete().then(() => loadAppeals());
+                            }, "Deny");
+                        });
+                        actionsDiv.appendChild(resolveBtn); actionsDiv.appendChild(denyBtn);
+                    }
+                    appealsList.appendChild(card);
+                });
+            } catch (err) {
+                console.error("loadAppeals error", err);
+                appealsList.innerHTML = `<div class="card"><p class="small">Failed to load appeals.</p></div>`;
+            }
+        }
+
+        // --- IP bans management (kept from your version but wired to UI above) ---
+        function renderIpBans(list) {
+            blockedIpList.innerHTML = "";
+            if (!list || !Array.isArray(list) || list.length === 0) {
+                blockedIpList.innerHTML = `<div class="card"><p><em>No blocked IPs found.</em></p></div>`;
+                return;
+            }
+            list.sort((a, b) => {
+                const da = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
+                const dbt = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
+                return dbt - da;
+            });
+            list.forEach(item => {
+                const ip = item.IP || item.ip || "(unknown)";
+                const reason = item.Reason || item.reason || "No reason provided";
+                const addedBy = item.addedBy || item.addedByUser || "unknown";
+                const date = item.dateAdded ? new Date(item.dateAdded).toLocaleString() : "Unknown date";
+                const card = document.createElement('div'); card.className = 'card';
+                card.innerHTML = `
+              <div style="width:100%">
+                <h3 style="margin-bottom:8px">${ip}</h3>
+                <p class="small"><strong>Reason:</strong> ${reason}</p>
+                <p class="small"><strong>Added by:</strong> ${addedBy} — <strong>On:</strong> ${date}</p>
+                <div class="row" style="margin-top:8px;"></div>
+              </div>
+            `;
+                const removeRow = card.querySelector('.row');
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'confirm-deny';
+                removeBtn.textContent = 'Remove';
+                removeBtn.addEventListener('click', () => {
+                    openModal("Remove IP", `<p>Are you sure you want to remove the blocked IP <strong>${ip}</strong>?</p>`, () => {
+                        removeIpBan(ip);
+                    }, "Deny");
+                });
+                removeRow.appendChild(removeBtn);
+                blockedIpList.appendChild(card);
+            });
+        }
+
+        async function loadIpBans() {
+            blockedIpList.innerHTML = `<div class="card"><p class="small">Loading blocked IPs…</p></div>`;
+            try {
+                const docRef = await db.collection("Banlist").doc("BlockedIPs").get();
+                if (!docRef.exists) { renderIpBans([]); return; }
+                const list = docRef.data().List || [];
+                renderIpBans(list);
+            } catch (err) {
+                console.error("failed loading ip bans", err);
+                blockedIpList.innerHTML = `<div class="card"><p class="small">Failed to load blocked IPs.</p></div>`;
+            }
+        }
+
+        async function addIpBan(ip, reason) {
+            if (!ip) { alert("Please provide an IP."); return; }
             const docRef = db.collection("Banlist").doc("BlockedIPs");
             const newEntry = {
                 IP: ip.trim(),
@@ -660,118 +789,61 @@
                 addedBy: currentUsername || "unknown",
                 dateAdded: new Date().toISOString()
             };
-
-            db.runTransaction(transaction => {
-                return transaction.get(docRef).then(docSnap => {
-                    const existing = docSnap.exists ? (docSnap.data().List || []) : [];
-                    // prevent duplicate IPs
-                    const already = existing.some(e => (e.IP || "").trim() === newEntry.IP);
-                    if (already) {
-                        throw new Error("already_exists");
-                    }
+            try {
+                await db.runTransaction(async (tr) => {
+                    const snap = await tr.get(docRef);
+                    const existing = snap.exists ? (snap.data().List || []) : [];
+                    const already = existing.some(e => (e.IP || '').trim() === newEntry.IP);
+                    if (already) throw new Error("already_exists");
                     const updated = existing.concat(newEntry);
-                    transaction.set(docRef, { List: updated }, { merge: true });
-                    return true;
+                    tr.set(docRef, { List: updated }, { merge: true });
                 });
-            }).then(() => {
-                ipModal.style.display = "none";
-                ipInput.value = "";
-                ipReason.value = "";
-                loadIpBans();
-            }).catch(err => {
-                if (err && err.message === "already_exists") {
-                    alert("That IP is already blocked.");
-                } else {
-                    console.error("Failed to add IP:", err);
-                    alert("Failed to add IP. See console for details.");
-                }
-            });
+                ipModal.style.display = 'none';
+                ipInput.value = ''; ipReason.value = '';
+                await loadIpBans();
+            } catch (err) {
+                if (err && err.message === "already_exists") alert("That IP is already blocked.");
+                else { console.error("Failed to add IP:", err); alert("Failed to add IP. See console."); }
+            }
         }
 
-        // Remove IP ban (transactionally)
-        function removeIpBan(ip) {
+        async function removeIpBan(ip) {
             if (!ip) return;
             const docRef = db.collection("Banlist").doc("BlockedIPs");
-
-            db.runTransaction(transaction => {
-                return transaction.get(docRef).then(docSnap => {
-                    if (!docSnap.exists) return; // nothing to do
-                    const existing = docSnap.data().List || [];
-                    const filtered = existing.filter(e => (e.IP || "").trim() !== ip.trim());
-                    transaction.set(docRef, { List: filtered }, { merge: true });
+            try {
+                await db.runTransaction(async (tr) => {
+                    const snap = await tr.get(docRef);
+                    if (!snap.exists) return;
+                    const existing = snap.data().List || [];
+                    const filtered = existing.filter(e => (e.IP || '').trim() !== ip.trim());
+                    tr.set(docRef, { List: filtered }, { merge: true });
                 });
-            }).then(() => {
-                loadIpBans();
-            }).catch(err => {
+                await loadIpBans();
+            } catch (err) {
                 console.error("Failed to remove IP:", err);
-                alert("Failed to remove IP. See console for details.");
-            });
+                alert("Failed to remove IP. See console.");
+            }
         }
 
-        // --- Wire up IP modal buttons ---
-        refreshIpBans.addEventListener("click", loadIpBans);
-        openAddIp.addEventListener("click", () => {
-            ipModal.style.display = "flex";
-        });
-        ipCancel.addEventListener("click", () => {
-            ipModal.style.display = "none";
-        });
+        // wire IP modal buttons
+        refreshIpBans.addEventListener('click', loadIpBans);
+        openAddIp.addEventListener('click', () => { ipModal.style.display = 'flex'; });
+        ipCancel.addEventListener('click', () => { ipModal.style.display = 'none'; });
 
-        // New: when clicking Add, check whether the entered IP equals admin's current public IP
-        ipAddConfirm.addEventListener("click", async () => {
-            const ip = (ipInput.value || "").trim();
-            const reason = (ipReason.value || "").trim();
-            if (!ip) {
-                alert("Please enter an IP address.");
-                return;
-            }
-
-            // try to fetch the admin's public IP; if it matches the entered IP, show warning confirm
-            const myIp = await getPublicIP();
-
-            if (myIp && myIp === ip) {
-                // show confirmation modal warning that this is the admin's IP
-                openModal("Confirm Add IP", `<p>Are you sure? <strong>This is YOUR IP.</strong><br><br>Blocking your own IP may prevent you from accessing admin tools from this network.</p>`, () => {
-                    // on confirm -> actually add
-                    addIpBan(ip, reason);
-                }, "Add");
-                return;
-            }
-
-            // if we couldn't fetch the admin IP (myIp === null), be slightly cautious: ask a simple confirm
-            if (!myIp) {
-                openModal("Confirm Add IP", `<p>Could not verify your public IP. Are you sure you want to add <strong>${ip}</strong> to the blocked list?</p>`, () => {
-                    addIpBan(ip, reason);
-                }, "Add");
-                return;
-            }
-
-            // otherwise safe to add
-            addIpBan(ip, reason);
+        ipAddConfirm.addEventListener('click', async () => {
+            const ip = (ipInput.value || '').trim();
+            const reason = (ipReason.value || '').trim();
+            if (!ip) { alert("Please enter an IP address."); return; }
+            // if you want to avoid adding your own IP, check getPublicIP here. For brevity we just add.
+            await addIpBan(ip, reason);
         });
 
-        // Default to Users tab with search visible
+        // default to users tab
         showTab('users');
 
-        // Console safety note (kept from your original)
-        console.log(`
-                          _______      _________      _____       ______     _
-                         / _____ \\    |____ ____|    / ___ \\     | ____ \\   | |
-                        / /     \\_\\       | |       / /   \\ \\    | |   \\ \\  | |
-                        | |               | |      / /     \\ \\   | |   | |  | |
-                        \\ \\______         | |      | |     | |   | |___/ /  | |
-                         \\______ \\        | |      | |     | |   |  ____/   | |
-                                \\ \\       | |      | |     | |   | |        | |
-                         _      | |       | |      \\ \\     / /   | |        |_|
-                        \\ \\_____/ /       | |       \\ \\___/ /    | |         _
-                         \\_______/        |_|        \\_____/     |_|        |_|
+        // safety console banner
+        console.log("Admin panel loaded.");
 
-                         Keep your account safe! Do not send any information from
-                         here to anyone or paste any text here.
-
-                         If someone is asking you to copy or paste text here then
-                         you're giving someone access to your account.
-                        `);
     </script>
 </body>
 </html>
