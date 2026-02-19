@@ -651,28 +651,46 @@
         // --- Appeals code (kept largely same as before) ---
         function openModal(title, bodyHTML, onConfirm, confirmLabel = "Resolve") {
             const ipModalEl = document.getElementById("ipModal");
-            // disable ipModal pointer events if visible, to ensure generic modal overlays it
             const ipModalWasVisible = ipModalEl && ipModalEl.style.display === "flex";
-            if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = "none"; ipModalEl.style.opacity = "0.9"; }
+
+            // Save previous display so we can restore it
+            const ipPrevDisplay = ipModalEl ? ipModalEl.style.display : null;
+
+            // If the IP modal is visible, hide it completely while the generic modal is open
+            if (ipModalEl && ipModalWasVisible) {
+                ipModalEl.style.display = "none";
+            }
 
             genericTitle.textContent = title;
             genericBody.innerHTML = bodyHTML;
             genericConfirm.textContent = confirmLabel;
             genericConfirm.className = "";
             genericConfirm.classList.add(confirmLabel === "Deny" ? "confirm-deny" : "confirm-resolve");
+
+            // Make sure the generic modal is on top and visible
             genericModal.style.display = "flex";
 
+            // Confirm handler — run callback then close and restore ipModal if needed
             genericConfirm.onclick = () => {
-                try { if (onConfirm) onConfirm(); } finally {
+                try {
+                    if (onConfirm) onConfirm();
+                } finally {
                     genericModal.style.display = "none";
-                    if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = ""; ipModalEl.style.opacity = ""; }
+                    if (ipModalEl && ipModalWasVisible) {
+                        ipModalEl.style.display = ipPrevDisplay || "flex";
+                    }
                 }
             };
+
+            // Cancel handler — just close and restore
             genericCancel.onclick = () => {
                 genericModal.style.display = "none";
-                if (ipModalEl && ipModalWasVisible) { ipModalEl.style.pointerEvents = ""; ipModalEl.style.opacity = ""; }
+                if (ipModalEl && ipModalWasVisible) {
+                    ipModalEl.style.display = ipPrevDisplay || "flex";
+                }
             };
         }
+
 
         function openConfirm(title, html, onConfirm, confirmLabel = "Yes") {
             openModal(title, html, onConfirm, confirmLabel);
@@ -834,9 +852,30 @@
             const ip = (ipInput.value || '').trim();
             const reason = (ipReason.value || '').trim();
             if (!ip) { alert("Please enter an IP address."); return; }
-            // if you want to avoid adding your own IP, check getPublicIP here. For brevity we just add.
+
+            try {
+                const pub = await getPublicIP();
+                // if we could fetch a public IP and it matches the IP being added, warn the admin
+                if (pub && pub.trim() === ip.trim()) {
+                    openModal(
+                        "Confirm",
+                        `<p>Are you sure? <strong>This is YOUR IP.</strong><br><br> Blocking your own IP may prevent you from accessing admin tools from this network.</p>`,
+                        async () => {
+                            await addIpBan(ip, reason);
+                        },
+                        "Add IP"
+                    );
+                    return;
+                }
+            } catch (err) {
+                // if something goes wrong fetching IP, fall back to adding (no surprise changes)
+                console.warn("getPublicIP failed:", err);
+            }
+
+            // default: add the IP
             await addIpBan(ip, reason);
         });
+
 
         // default to users tab
         showTab('users');
