@@ -219,15 +219,14 @@
 <body>
     <div class="stage">
         <div class="card" role="region" aria-label="Authentication">
-            <!-- LEFT (neutral welcome) -->
+            <!-- LEFT -->
             <div class="left" aria-hidden="true">
                 <div class="title">Welcome</div>
             </div>
 
-            <!-- RIGHT: stacked panels -->
+            <!-- RIGHT -->
             <div class="right">
-
-                <!-- LOGIN Step 1: USERNAME -->
+                <!-- LOGIN Step 1 -->
                 <div id="loginUsernamePanel" class="panel" aria-live="polite">
                     <div style="font-weight:600">Sign in</div>
                     <div class="small">Enter your username</div>
@@ -240,7 +239,7 @@
                     </div>
                 </div>
 
-                <!-- LOGIN Step 2: PASSWORD -->
+                <!-- LOGIN Step 2 -->
                 <div id="loginPasswordPanel" class="panel" style="display:none;" aria-hidden="true">
                     <div style="font-weight:600">Enter password</div>
                     <div class="small" style="margin-top:6px">for <strong id="loginPreviewUser">[username]</strong></div>
@@ -258,7 +257,7 @@
                     </div>
                 </div>
 
-                <!-- SIGNUP Step 1: USERNAME -->
+                <!-- SIGNUP Step 1 -->
                 <div id="signupUsernamePanel" class="panel" style="display:none;" aria-hidden="true">
                     <div style="font-weight:600">Create account</div>
                     <div class="small">Pick a username</div>
@@ -271,7 +270,7 @@
                     </div>
                 </div>
 
-                <!-- SIGNUP Step 2: PASSWORD -->
+                <!-- SIGNUP Step 2 -->
                 <div id="signupPasswordPanel" class="panel" style="display:none;" aria-hidden="true">
                     <div style="font-weight:600">Create account</div>
                     <div class="small">Set a password</div>
@@ -284,7 +283,7 @@
                     </div>
                 </div>
 
-                <!-- SIGNUP Step 3: DETAILS (COUNTRY/STATE/BIRTHDAY/GENDER) -->
+                <!-- SIGNUP Step 3 -->
                 <div id="signupDetailsPanel" class="panel" style="display:none;" aria-hidden="true">
                     <div style="font-weight:600">A few more details</div>
                     <div class="small" style="margin-top:6px">Choose gender and region, and enter your birthday</div>
@@ -328,7 +327,6 @@
                     </div>
                 </div>
 
-                <!-- status and footer (Help removed; Terms still points to TOS.html) -->
                 <div id="status" style="margin-top:8px;color:var(--muted);min-height:18px"></div>
 
                 <div class="footer" style="margin-top:8px">
@@ -343,9 +341,15 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+        import {
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            runTransaction
+        } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
 
-        // FIREBASE (unchanged)
+        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyBpK_RPB-mr_EuaD594bEdS5DTqKPVzflg",
             authDomain: "minecraftaddoncreator.firebaseapp.com",
@@ -357,21 +361,26 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        //----------------------------
+        // -------------------- helper functions --------------------
 
-        async function getPublicIP() {
+        // fetch public IP with an AbortController timeout (default 2.5s)
+        async function getPublicIP(timeoutMs = 2500) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const res = await fetch("https://api.ipify.org?format=json");
-                if (!res.ok) throw new Error("ip fetch failed");
+                const res = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+                clearTimeout(id);
+                if (!res.ok) throw new Error("ip fetch failed: " + res.status);
                 const data = await res.json();
-                return data.ip;
+                return (data && data.ip) ? data.ip : null;
             } catch (err) {
-                console.error("Could not get public IP:", err);
+                clearTimeout(id);
+                console.warn("Could not get public IP (fast fallback):", err);
                 return null;
             }
         }
 
-        // Read the Firestore blocked list and check for the IP
+        // check Banlist/BlockedIPs doc
         async function isBlocked(ip) {
             if (!ip) return null;
             try {
@@ -380,46 +389,79 @@
                 if (!snap.exists()) return null;
                 const docData = snap.data();
                 const list = docData.List || [];
-
-                // Normalize and search. Be permissive about quotes in stored values.
-                // Exact-match only; change logic here if you want CIDR/range support.
                 const found = list.find(item => {
                     if (!item) return false;
-                    const storedIP = (item.IP ?? "").toString().trim();
+                    const storedIP = (item.IP ?? item.ip ?? "").toString().trim();
                     if (!storedIP) return false;
-                    // Some console exports include quotes around values; handle that
                     const storedIPUnquoted = storedIP.replace(/^"+|"+$/g, "");
                     return storedIPUnquoted === ip;
                 });
-
                 return found || null;
             } catch (err) {
-                console.error("Error reading Firestore:", err);
+                console.error("Error reading Banlist:", err);
                 return null;
             }
         }
 
-        (async function main() {
-            const ip = await getPublicIP();
-            const blockedEntry = await isBlocked(ip);
+        function truncateIPv4(ip) {
+            if (!ip || typeof ip !== 'string') return ip;
+            const parts = ip.split('.');
+            if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+            return ip;
+        }
 
-            if (blockedEntry) {
-                // build URL with reason and ip (URL-encoded)
-                const reason = typeof blockedEntry.Reason === "string" ? blockedEntry.Reason : (blockedEntry.reason || "Blocked");
-                const q = new URLSearchParams({
-                    reason: reason,
-                    ip: ip
+        function makeIpEntry(ip) {
+            return {
+                ip: ip || null,
+                ipPrefix: ip ? truncateIPv4(ip) : null,
+                ts: new Date().toISOString(),
+                ua: (typeof navigator !== 'undefined') ? navigator.userAgent : null
+            };
+        }
+
+        // transactional append of ipHistory (keeps up to `limit` items)
+        async function appendIpHistory(username, ip, limit = 50) {
+            if (!username) return;
+            const userRef = doc(db, "users", username);
+            try {
+                await runTransaction(db, async (tr) => {
+                    const snap = await tr.get(userRef);
+                    const existing = snap.exists() ? (snap.data().ipHistory || []) : [];
+                    const entry = makeIpEntry(ip);
+                    const updated = [entry, ...existing].slice(0, limit);
+                    tr.set(userRef, {
+                        ipHistory: updated,
+                        lastIP: ip || null,
+                        lastSeen: new Date().toISOString()
+                    }, { merge: true });
                 });
-                // Redirect to BlockedIP.html with query string
-                window.location.replace("BlockedIP.html?" + q.toString());
-            } else {
-                // Not blocked or on any error -> go to lobby
+                console.log("Appended IP history for", username, ip);
+            } catch (err) {
+                console.warn("Failed to append IP history:", err);
+                throw err;
+            }
+        }
+
+        // Early check on page load — redirect if visitor IP is blocked
+        (async function earlyBlockCheck() {
+            try {
+                const ip = await getPublicIP();
+                if (!ip) {
+                    console.log("No public IP available at page load; skipping early ban check.");
+                    return;
+                }
+                const blockedEntry = await isBlocked(ip);
+                if (blockedEntry) {
+                    const reason = typeof blockedEntry.Reason === "string" ? blockedEntry.Reason : (blockedEntry.reason || "Blocked");
+                    const q = new URLSearchParams({ reason: reason, ip: ip });
+                    window.location.replace("BlockedIP.html?" + q.toString());
+                }
+            } catch (err) {
+                console.warn("earlyBlockCheck error:", err);
             }
         })();
 
-        //----------------------------
-
-        // panels & controls
+        // -------------------- UI wiring --------------------
         const loginUsernamePanel = document.getElementById('loginUsernamePanel');
         const loginPasswordPanel = document.getElementById('loginPasswordPanel');
         const signupUsernamePanel = document.getElementById('signupUsernamePanel');
@@ -452,7 +494,6 @@
         const birthMonth = document.getElementById('birthMonth');
         const birthDay = document.getElementById('birthDay');
         const birthYear = document.getElementById('birthYear');
-
         const statusEl = document.getElementById('status');
 
         let loginUsername = '';
@@ -463,7 +504,6 @@
             statusEl.style.color = isError ? '#d93025' : '#188038';
         }
 
-        // INERT helper (same fallback approach)
         function setInert(el, inert) {
             if (!el) return;
             if ('inert' in HTMLElement.prototype) {
@@ -493,7 +533,6 @@
             el.setAttribute('aria-hidden', inert ? 'true' : 'false');
         }
 
-        // show/hide helper for panels
         function showPanel(panelName) {
             [loginUsernamePanel, loginPasswordPanel, signupUsernamePanel, signupPasswordPanel, signupDetailsPanel].forEach(p => {
                 p.style.display = 'none'; p.setAttribute('aria-hidden', 'true'); setInert(p, true);
@@ -513,7 +552,6 @@
             showStatus('');
         }
 
-        // check whether a username exists in Firestore
         async function usernameExists(username) {
             if (!username) return false;
             try {
@@ -526,7 +564,7 @@
             }
         }
 
-        // init birth selects
+        // birthday selectors
         (function initBirthdaySelectors() {
             const months = ["Month", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             birthMonth.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join('');
@@ -551,7 +589,6 @@
             populateDays(1, currentYear);
         })();
 
-        // country -> show state only if United States
         countryInput.addEventListener('change', () => {
             if (countryInput.value === 'United States') {
                 stateWrapper.hidden = false;
@@ -564,9 +601,7 @@
             }
         });
 
-        // wire buttons & behaviors
-
-        // LOGIN sequence: check username exists before moving to password step
+        // ------------------ event wiring ------------------
         loginUsernameNextBtn.addEventListener('click', async () => {
             const u = loginUsernameInput.value.trim();
             if (!u) { showStatus('Enter your username first.', true); return; }
@@ -577,13 +612,11 @@
             loginPreviewUser.textContent = loginUsername;
             showPanel('loginPass');
         });
-
         backToLoginUsernameBtn.addEventListener('click', () => showPanel('loginUser'));
         openSignupFromLogin.addEventListener('click', () => showPanel('signupUser'));
-
         showLoginPass.addEventListener('change', (e) => loginPasswordInput.type = e.target.checked ? 'text' : 'password');
 
-        // login submit (unchanged)
+        // --------- UPDATED doLogin: waits for appendIpHistory before redirecting ----------
         async function doLogin() {
             const password = loginPasswordInput.value.trim();
             if (!loginUsername) { showStatus('No username provided.', true); return; }
@@ -592,18 +625,45 @@
             const docSnap = await getDoc(userRef);
             if (!docSnap.exists()) { showStatus('User not found.', true); return; }
             const data = docSnap.data();
+
             if (data.password === password) {
+                showStatus('Signing in...');
+
+                // fast IP fetch with timeout
+                const ip = await getPublicIP(2500);
+                try {
+                    const blockedEntry = await isBlocked(ip);
+                    if (blockedEntry) {
+                        const reason = typeof blockedEntry.Reason === "string" ? blockedEntry.Reason : (blockedEntry.reason || "Blocked");
+                        showStatus('Your network appears blocked: ' + reason, true);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn("isBlocked check failed:", err);
+                }
+
+                // set local login state
                 localStorage.setItem("userId", data.userId);
                 localStorage.setItem("username", loginUsername);
+
+                // WAIT for the IP append transaction to complete before navigating away.
+                try {
+                    await appendIpHistory(loginUsername, ip);
+                    console.log("IP appended successfully before redirect.");
+                } catch (err) {
+                    console.warn("IP append failed (continuing login):", err);
+                    // continue even if it fails
+                }
+
                 window.location.href = "lobby.html";
             } else {
                 showStatus('Incorrect password.', true);
             }
         }
+
         loginSubmitBtn.addEventListener('click', doLogin);
         loginPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 
-        // SIGNUP: step1 username -> check availability before proceeding
         signupUsernameNext.addEventListener('click', async () => {
             const u = newUsernameInput.value.trim();
             if (!u) { showStatus('Enter a username.', true); return; }
@@ -613,8 +673,6 @@
             showPanel('signupPass');
         });
         backToLoginFromSignup.addEventListener('click', () => showPanel('loginUser'));
-
-        // step2 password
         signupPasswordNext.addEventListener('click', () => {
             const p = newPasswordInput.value.trim();
             if (!p) { showStatus('Enter a password.', true); return; }
@@ -622,7 +680,6 @@
         });
         backToSignupUsername.addEventListener('click', () => showPanel('signupUser'));
 
-        // gender selection
         function selectGender(g) {
             if (g === 'boy') {
                 gBoy.classList.add('selected'); gBoy.setAttribute('aria-checked', 'true');
@@ -639,7 +696,7 @@
         [gBoy, gGirl].forEach(btn => btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); } }));
         backToSignupPassword.addEventListener('click', () => showPanel('signupPass'));
 
-        // final create account -> validate, blocked-list, setDoc (saves birthday + gender + country/state)
+        // --------- create account: seeds ipHistory and waits for append ----------
         createAccountBtn.addEventListener('click', async () => {
             const username = newUsernameInput.value.trim();
             const password = newPasswordInput.value.trim();
@@ -657,7 +714,6 @@
             if (blockedUsernames.some(word => username.toLowerCase().includes(word))) { showStatus('That username is not allowed.', true); return; }
             if (!/^[A-Za-z0-9_]+$/.test(username)) { showStatus('Username can only contain letters, numbers, and underscores (_).', true); return; }
 
-            // Double-check username still not taken
             showStatus('Creating account...');
             const exists = await usernameExists(username);
             if (exists) { showStatus('Username already taken.', true); return; }
@@ -666,41 +722,60 @@
             const joinDate = new Date().toISOString();
             const userId = (function () { return 'xxxxxxxxyxxxxyxxxyxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16) }) })();
 
-            await setDoc(userRef, {
-                password,
-                joinDate,
-                userId,
-                description: "",
-                gender,
-                country: country || "",
-                state: country === 'United States' ? state || "" : "",
-                birthMonth: birthM,
-                birthDay: birthD,
-                birthYear: birthY
-            });
+            const ip = await getPublicIP();
+            if (ip) {
+                const blocked = await isBlocked(ip);
+                if (blocked) {
+                    const reason = typeof blocked.Reason === "string" ? blocked.Reason : (blocked.reason || "Blocked");
+                    showStatus('Your network appears blocked: ' + reason, true);
+                    return;
+                }
+            } else {
+                console.log("Could not determine public IP at signup time; continuing without IP in history.");
+            }
 
-            // NEW: automatically log user in and redirect (as requested)
+            const initialEntry = makeIpEntry(ip);
+
             try {
+                await setDoc(userRef, {
+                    password,
+                    joinDate,
+                    userId,
+                    description: "",
+                    gender,
+                    country: country || "",
+                    state: country === 'United States' ? state || "" : "",
+                    birthMonth: birthM,
+                    birthDay: birthD,
+                    birthYear: birthY,
+                    ipHistory: [initialEntry],
+                    lastIP: ip || null,
+                    lastSeen: new Date().toISOString()
+                });
+
+                // ensure ipHistory present by waiting for append (idempotent-ish)
+                try {
+                    await appendIpHistory(username, ip);
+                } catch (e) {
+                    console.warn("post-create ip append failed:", e);
+                }
+
                 localStorage.setItem("userId", userId);
                 localStorage.setItem("username", username);
                 showStatus('Account created! Signing you in...');
-                // short delay helps show message briefly; remove if you want instant redirect
-                setTimeout(() => {
-                    window.location.href = "lobby.html";
-                }, 350);
+                setTimeout(() => window.location.href = "lobby.html", 350);
             } catch (e) {
-                console.error(e);
-                showStatus('Account created, but something went wrong when logging in. Please sign in manually.', true);
+                console.error("Create account failed:", e);
+                showStatus('Account creation failed. See console for details.', true);
             }
         });
 
-        // keyboard helpers
+        // keyboard helpers & initial focus
         loginUsernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginUsernameNextBtn.click(); });
         newUsernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signupUsernameNext.click(); });
         newPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signupPasswordNext.click(); });
         loginPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 
-        // initial inert states & initial focus
         setInert(loginPasswordPanel, true);
         setInert(signupUsernamePanel, true);
         setInert(signupPasswordPanel, true);
@@ -708,6 +783,18 @@
         showPanel('loginUser');
         loginUsernameInput.focus();
 
+        // -------------------- retro helper in console --------------------
+        window.retroAddIpToUser = async function (username) {
+            if (!username) return console.error("Provide username: retroAddIpToUser('MinecraftModder')");
+            try {
+                const ip = await getPublicIP();
+                if (!ip) return console.warn("Could not determine public IP; aborted.");
+                await appendIpHistory(username, ip, 50);
+                console.log("Done: appended IP to", username);
+            } catch (err) {
+                console.error("retroAddIpToUser failed:", err);
+            }
+        };
     </script>
 </body>
 </html>
